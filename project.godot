@@ -7,10 +7,15 @@ config_version=5
 
 config/name="Block Puzzle Game"
 config/description="Original sliding-block color-gate puzzle."
-run/main_scene="res://scenes/Game.tscn"
+run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 boot_splash/show_image=false
+
+[autoload]
+
+Settings="*res://scripts/core/settings.gd"
+Audio="*res://scripts/audio/audio_manager.gd"
 
 [display]
 

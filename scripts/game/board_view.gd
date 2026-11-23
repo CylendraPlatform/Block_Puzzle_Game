@@ -2,10 +2,13 @@ class_name BoardView
 extends Control
 ## Renders a Level and handles touch/drag to slide blocks. Owns the mutable
 ## working copy of blocks so the controller can snapshot/restore for undo.
+## Blocks ease smoothly toward their grid position for a polished settle feel.
 
 signal move_made(prev: Array)   ## carries the pre-move snapshot for undo
 signal block_exited(id: String)
 signal won
+signal grabbed
+signal bumped
 
 const COLORS := {
 	"red": Color("#ff5d73"),
@@ -18,12 +21,14 @@ const COLORS := {
 const BG := Color("#242838")
 const GRID_LINE := Color("#2f3449")
 const WALL := Color("#11131c")
+const EASE_SPEED := 18.0
 
 var level: Level
 var blocks: Array[Dictionary] = []
 
 var _cell := 0.0
 var _origin := Vector2.ZERO
+var _visual := {}          ## id -> Vector2 (eased pixel top-left of origin cell)
 
 # Drag state
 var _sel_id := ""
@@ -31,7 +36,8 @@ var _grab_cell := Vector2i.ZERO
 var _sel_start := Vector2i.ZERO
 var _axis := -1            ## -1 unset, 0 = x, 1 = y
 var _pending_exit := false
-var _pre: Array[Dictionary] = []   ## snapshot captured at grab, for undo
+var _bumped := false
+var _pre: Array[Dictionary] = []
 var _exiting := {}         ## id -> scale (pop animation)
 
 func load_level(lv: Level) -> void:
@@ -39,42 +45,40 @@ func load_level(lv: Level) -> void:
 	blocks = lv.clone_blocks()
 	_clear_selection()
 	_exiting.clear()
+	_visual.clear()
 	queue_redraw()
 
 func snapshot() -> Array[Dictionary]:
+	return _copy(blocks)
+
+func restore(snap: Array) -> void:
+	blocks = _copy(snap)
+	_visual.clear()
+	_clear_selection()
+	queue_redraw()
+
+func _copy(src: Array) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for b in blocks:
+	for b in src:
 		var cells: Array[Vector2i] = []
 		for c in b["cells"]:
 			cells.append(c)
 		out.append({"id": b["id"], "color": b["color"], "cells": cells, "pos": b["pos"]})
 	return out
 
-func restore(snap: Array) -> void:
-	var out: Array[Dictionary] = []
-	for b in snap:
-		var cells: Array[Vector2i] = []
-		for c in b["cells"]:
-			cells.append(c)
-		out.append({"id": b["id"], "color": b["color"], "cells": cells, "pos": b["pos"]})
-	blocks = out
-	_clear_selection()
-	queue_redraw()
-
 func _clear_selection() -> void:
 	_sel_id = ""
 	_axis = -1
 	_pending_exit = false
+	_bumped = false
 
 # ---------------------------------------------------------------------------
-# Layout helpers
+# Layout
 # ---------------------------------------------------------------------------
 func _recompute_layout() -> void:
 	if level == null:
 		return
-	var avail := size
-	# reserve ~half a cell on each side for gate bars
-	_cell = minf(avail.x / (level.cols + 1.0), avail.y / (level.rows + 1.0))
+	_cell = minf(size.x / (level.cols + 1.0), size.y / (level.rows + 1.0))
 	var bw := _cell * level.cols
 	var bh := _cell * level.rows
 	_origin = Vector2((size.x - bw) * 0.5, (size.y - bh) * 0.5)
@@ -98,6 +102,29 @@ func _get_block(id: String) -> Dictionary:
 		if b["id"] == id:
 			return b
 	return {}
+
+# ---------------------------------------------------------------------------
+# Easing
+# ---------------------------------------------------------------------------
+func _process(delta: float) -> void:
+	if level == null:
+		return
+	_recompute_layout()
+	var moving := false
+	for b in blocks:
+		var id: String = b["id"]
+		var target := _px_from_cell(b["pos"])
+		if not _visual.has(id):
+			_visual[id] = target
+		else:
+			var cur: Vector2 = _visual[id]
+			if cur.distance_to(target) > 0.5:
+				_visual[id] = cur.lerp(target, minf(1.0, delta * EASE_SPEED))
+				moving = true
+			else:
+				_visual[id] = target
+	if moving or not _exiting.is_empty():
+		queue_redraw()
 
 # ---------------------------------------------------------------------------
 # Drawing
@@ -141,15 +168,19 @@ func _draw_gate(g: Dictionary) -> void:
 	draw_rect(r, col, true)
 
 func _draw_block(b: Dictionary) -> void:
+	var id: String = b["id"]
 	var col: Color = COLORS.get(b["color"], Color.WHITE)
+	if id == _sel_id:
+		col = col.lightened(0.12)
 	var scale := 1.0
-	if _exiting.has(b["id"]):
-		scale = _exiting[b["id"]]
+	if _exiting.has(id):
+		scale = _exiting[id]
+	var base: Vector2 = _visual.get(id, _px_from_cell(b["pos"]))
 	var pad := _cell * 0.08
 	for c in b["cells"]:
-		var cell: Vector2i = c + b["pos"]
+		var cell_tl := base + Vector2(c.x, c.y) * _cell
+		var centre := cell_tl + Vector2(_cell, _cell) * 0.5
 		var s := Vector2(_cell - pad * 2.0, _cell - pad * 2.0) * scale
-		var centre := _px_from_cell(cell) + Vector2(_cell, _cell) * 0.5
 		var rect := Rect2(centre - s * 0.5, s)
 		draw_rect(rect, col, true)
 		draw_rect(rect, col.darkened(0.25), false, 2.0)
@@ -185,7 +216,10 @@ func _begin_drag(px: Vector2) -> void:
 	_sel_start = _get_block(id)["pos"]
 	_axis = -1
 	_pending_exit = false
+	_bumped = false
 	_pre = snapshot()
+	grabbed.emit()
+	queue_redraw()
 
 func _update_drag(px: Vector2) -> void:
 	if _sel_id == "":
@@ -207,6 +241,9 @@ func _update_drag(px: Vector2) -> void:
 	var r := Rules.slide_result(level, blocks, probe, dir, abs(amount))
 	block["pos"] = r["pos"]
 	_pending_exit = r["exit"]
+	if amount != 0 and int(r["steps"]) == 0 and not r["exit"] and not _bumped:
+		_bumped = true
+		bumped.emit()
 	queue_redraw()
 
 func _end_drag() -> void:
@@ -222,6 +259,7 @@ func _end_drag() -> void:
 	elif moved:
 		emit_signal("move_made", _pre)
 	_clear_selection()
+	queue_redraw()
 
 func _animate_exit(id: String) -> void:
 	_exiting[id] = 1.0
@@ -235,6 +273,7 @@ func _remove_block(id: String) -> void:
 			blocks.remove_at(i)
 			break
 	_exiting.erase(id)
+	_visual.erase(id)
 	emit_signal("block_exited", id)
 	queue_redraw()
 	if Rules.is_won(blocks):
