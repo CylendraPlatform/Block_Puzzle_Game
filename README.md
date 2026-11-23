@@ -12,9 +12,14 @@ An **original** mobile sliding-block puzzle for Android, inspired by the gamepla
 - [`docs/BUILD.md`](docs/BUILD.md) — reproducible Android build steps.
 - [`docs/MONETIZATION.md`](docs/MONETIZATION.md) — ads / IAP / analytics stub architecture + privacy stance.
 
-## Planned docs (Phase 2, after engine pick)
+## Design & process docs
 
-`GDD.md`, `TECHNICAL_DESIGN.md`, `LEVEL_SYSTEM.md`, `DEVELOPMENT_PLAN.md`, `TEST_PLAN.md`, `CLAUDE.md`, `docs/BUILD.md`.
+- [`docs/GDD.md`](docs/GDD.md) — game design.
+- [`docs/TECHNICAL_DESIGN.md`](docs/TECHNICAL_DESIGN.md) — architecture & implementation.
+- [`docs/LEVEL_SYSTEM.md`](docs/LEVEL_SYSTEM.md) — level format, solver, generator, editor.
+- [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) — milestones & acceptance.
+- [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md) — test strategy & QA results.
+- [`CLAUDE.md`](CLAUDE.md) — repo development guide.
 
 ## Environment (verified 2026-11-23)
 
