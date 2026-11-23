@@ -1,0 +1,15 @@
+{
+  "id": 2,
+  "name": "Clear the Way",
+  "cols": 5,
+  "rows": 5,
+  "walls": [],
+  "blocks": [
+    { "id": "b1", "color": "red", "cells": [[0,0]], "pos": [2,2] },
+    { "id": "b2", "color": "blue", "cells": [[0,0]], "pos": [4,2] }
+  ],
+  "gates": [
+    { "color": "red", "side": "right", "lo": 2, "hi": 2 },
+    { "color": "blue", "side": "top", "lo": 4, "hi": 4 }
+  ]
+}

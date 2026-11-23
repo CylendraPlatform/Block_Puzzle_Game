@@ -1,0 +1,17 @@
+{
+  "id": 3,
+  "name": "Three Ways Out",
+  "cols": 6,
+  "rows": 6,
+  "walls": [[3,3]],
+  "blocks": [
+    { "id": "b1", "color": "red", "cells": [[0,0],[1,0],[2,0]], "pos": [0,0] },
+    { "id": "b2", "color": "green", "cells": [[0,0],[0,1]], "pos": [5,4] },
+    { "id": "b3", "color": "yellow", "cells": [[0,0]], "pos": [2,5] }
+  ],
+  "gates": [
+    { "color": "red", "side": "right", "lo": 0, "hi": 0 },
+    { "color": "green", "side": "bottom", "lo": 5, "hi": 5 },
+    { "color": "yellow", "side": "left", "lo": 5, "hi": 5 }
+  ]
+}
