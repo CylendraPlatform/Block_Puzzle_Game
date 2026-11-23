@@ -8,6 +8,7 @@ const SAVE_PATH := "user://settings.save"
 var sfx := true
 var music := true
 var haptics := true
+var analytics_opt_out := false   ## privacy: when true, no analytics events are recorded
 
 var selected_level := 0   ## transient: level index chosen in level-select (not persisted)
 var custom_level = null   ## transient: editor level dict to test-play (null = none)
@@ -24,12 +25,17 @@ func _load() -> void:
 		sfx = bool(data.get("sfx", true))
 		music = bool(data.get("music", true))
 		haptics = bool(data.get("haptics", true))
+		analytics_opt_out = bool(data.get("analytics_opt_out", false))
 
 func save() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"sfx": sfx, "music": music, "haptics": haptics}))
+		f.store_string(JSON.stringify({"sfx": sfx, "music": music, "haptics": haptics, "analytics_opt_out": analytics_opt_out}))
 	changed.emit()
+
+func set_analytics_opt_out(v: bool) -> void:
+	analytics_opt_out = v
+	save()
 
 func set_sfx(v: bool) -> void:
 	sfx = v

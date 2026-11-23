@@ -15,6 +15,9 @@ boot_splash/show_image=false
 [autoload]
 
 Settings="*res://scripts/core/settings.gd"
+Analytics="*res://scripts/services/analytics.gd"
+IAP="*res://scripts/services/iap_service.gd"
+Ads="*res://scripts/services/ads_service.gd"
 Audio="*res://scripts/audio/audio_manager.gd"
 
 [display]

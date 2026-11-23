@@ -10,6 +10,7 @@ var _index := 0
 var _undo: Array = []
 var _unlocked := 0
 var _custom := false
+var _undos := 0
 
 func _ready() -> void:
 	_levels = Catalog.list_paths()
@@ -144,6 +145,9 @@ func _load_index(i: int) -> void:
 		return
 	_board.load_level(lv)
 	_level_label.text = "Level %d  %s  " % [lv.id, lv.name]
+	_undos = 0
+	if Analytics:
+		Analytics.log_event("level_start", {"level": lv.id})
 
 func _on_move_made(prev: Array) -> void:
 	_undo.append(prev)
@@ -160,9 +164,22 @@ func _on_undo() -> void:
 	if _undo.is_empty():
 		return
 	_board.restore(_undo.pop_back())
+	_undos += 1
+	if Analytics:
+		Analytics.log_event("undo_used", {"level": _current_level_id()})
 
 func _on_restart() -> void:
-	_load_index(_index)
+	if Analytics:
+		Analytics.log_event("level_restart", {"level": _current_level_id()})
+	if _custom:
+		var lv := Level.from_dict(Settings.custom_level)
+		_board.load_level(lv)
+		_undos = 0
+	else:
+		_load_index(_index)
+
+func _current_level_id() -> int:
+	return 0 if _custom else _index + 1
 
 func _on_pause() -> void:
 	_pause_panel.visible = true
@@ -176,6 +193,8 @@ func _on_won() -> void:
 		Catalog.save_unlocked(_unlocked)
 	if Audio:
 		Audio.sfx("win")
+	if Analytics:
+		Analytics.log_event("level_complete", {"level": _current_level_id(), "undos": _undos})
 	_win_panel.visible = true
 
 func _on_next() -> void:
@@ -184,6 +203,10 @@ func _on_next() -> void:
 		get_tree().change_scene_to_file("res://scenes/Editor.tscn")
 		return
 	if _index + 1 < _levels.size():
+		# Interstitial opportunity between levels (no-op unless a provider is set
+		# and the player hasn't bought remove-ads).
+		if Ads and (_index + 1) % 3 == 0:
+			Ads.show_interstitial("level_complete")
 		_load_index(_index + 1)
 	else:
 		_win_panel.visible = false

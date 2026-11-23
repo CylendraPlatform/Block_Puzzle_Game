@@ -9,6 +9,8 @@ An **original** mobile sliding-block puzzle for Android, inspired by the gamepla
 - [`docs/AUDIT.md`](docs/AUDIT.md) — Phase 0 environment & repo audit, toolchain inventory, blockers.
 - [`docs/REFERENCE_SPEC.md`](docs/REFERENCE_SPEC.md) — Phase 1 reference behavior spec (verified vs assumed).
 - [`docs/ENGINE_DECISION.md`](docs/ENGINE_DECISION.md) — Godot vs Native Kotlin vs Unity, with recommendation.
+- [`docs/BUILD.md`](docs/BUILD.md) — reproducible Android build steps.
+- [`docs/MONETIZATION.md`](docs/MONETIZATION.md) — ads / IAP / analytics stub architecture + privacy stance.
 
 ## Planned docs (Phase 2, after engine pick)
 

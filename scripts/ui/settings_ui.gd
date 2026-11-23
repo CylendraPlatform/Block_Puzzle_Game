@@ -41,6 +41,28 @@ func _build() -> void:
 	box.add_child(_toggle("Sound Effects", Settings.sfx, func(v): Settings.set_sfx(v)))
 	box.add_child(_toggle("Music", Settings.music, func(v): Settings.set_music(v)))
 	box.add_child(_toggle("Haptics", Settings.haptics, func(v): Settings.set_haptics(v)))
+	box.add_child(_toggle("Share Analytics", not Settings.analytics_opt_out, func(v): Settings.set_analytics_opt_out(not v)))
+	box.add_child(_shop_row())
+
+func _shop_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	var l := Label.new()
+	l.custom_minimum_size = Vector2(240, 0)
+	l.add_theme_font_size_override("font_size", 24)
+	var owned: bool = IAP and IAP.has_entitlement("remove_ads")
+	l.text = "Remove Ads"
+	row.add_child(l)
+	var b := Button.new()
+	b.text = "Owned" if owned else IAP.CATALOG["remove_ads"]["price"]
+	b.disabled = owned
+	b.pressed.connect(func():
+		if Audio: Audio.sfx("tap")
+		if IAP: IAP.purchase("remove_ads")
+		b.text = "Owned"
+		b.disabled = true)
+	row.add_child(b)
+	return row
 
 func _toggle(label: String, value: bool, cb: Callable) -> HBoxContainer:
 	var row := HBoxContainer.new()
