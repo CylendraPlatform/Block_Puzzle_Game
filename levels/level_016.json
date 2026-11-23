@@ -1,0 +1,68 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "orange",
+      "id": "b1",
+      "pos": [
+        1,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "blue",
+      "id": "b2",
+      "pos": [
+        1,
+        2
+      ]
+    }
+  ],
+  "cols": 5,
+  "gates": [
+    {
+      "color": "orange",
+      "hi": 4,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "blue",
+      "hi": 4,
+      "lo": 0,
+      "side": "top"
+    }
+  ],
+  "id": 16,
+  "name": "Level 16",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      4
+    ]
+  ]
+}

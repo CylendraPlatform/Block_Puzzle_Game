@@ -133,6 +133,43 @@ static func _apply(blocks: Array, idx: int, new_pos: Vector2i, do_exit: bool) ->
 			out.append({"id": blocks[i]["id"], "color": blocks[i]["color"], "cells": blocks[i]["cells"], "pos": blocks[i]["pos"]})
 	return out
 
+## BFS shortest solution length in "moves" (each slide or exit = 1 move).
+## Returns -1 if unsolvable (or if the state cap is hit). Used to grade difficulty.
+static func solve_min_moves(level: Level, cap: int = MAX_SOLVE_STATES) -> int:
+	var start: Array = level.clone_blocks()
+	if start.is_empty():
+		return 0
+	var seen := {}
+	var queue: Array = [[start, 0]]
+	seen[_state_key(start)] = true
+	var visited := 0
+	while not queue.is_empty():
+		visited += 1
+		if visited > cap:
+			return -1
+		var item: Array = queue.pop_front()
+		var cur: Array = item[0]
+		var depth: int = item[1]
+		for idx in cur.size():
+			var b: Dictionary = cur[idx]
+			for dir in DIRS.keys():
+				var r := slide_result(level, cur, b, dir, 9999)
+				if r["exit"]:
+					var ns := _apply(cur, idx, r["pos"], true)
+					if ns.is_empty():
+						return depth + 1
+					var k := _state_key(ns)
+					if not seen.has(k):
+						seen[k] = true
+						queue.append([ns, depth + 1])
+				elif int(r["steps"]) > 0:
+					var ns2 := _apply(cur, idx, r["pos"], false)
+					var k2 := _state_key(ns2)
+					if not seen.has(k2):
+						seen[k2] = true
+						queue.append([ns2, depth + 1])
+	return -1
+
 ## Returns {solvable:bool, states:int}. BFS to any all-exited state.
 static func solve(level: Level) -> Dictionary:
 	var start: Array = level.clone_blocks()

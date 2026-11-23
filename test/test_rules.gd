@@ -12,17 +12,15 @@ func _ok(cond: bool, msg: String) -> void:
 		print("  FAIL  ", msg)
 		_fails += 1
 
-func _load(path: String) -> Level:
-	var f := FileAccess.open(path, FileAccess.READ)
-	assert(f != null, "missing " + path)
-	var data: Dictionary = JSON.parse_string(f.get_as_text())
-	return Level.from_dict(data)
-
 func _initialize() -> void:
 	print("== test_rules ==")
 
-	# Level 1 — trivial single-drag exit.
-	var l1 := _load("res://levels/level_001.json")
+	# Fixed fixture: a 1x2 red block that must slide right to a red right-gate.
+	var l1 := Level.from_dict({
+		"id": 1, "name": "fixture1", "cols": 5, "rows": 5, "walls": [],
+		"blocks": [{ "id": "b1", "color": "red", "cells": [[0,0],[1,0]], "pos": [0,2] }],
+		"gates": [{ "color": "red", "side": "right", "lo": 2, "hi": 2 }],
+	})
 	_ok(l1.is_valid(), "L1 valid")
 	var b1: Dictionary = l1.blocks[0]
 	var r := Rules.slide_result(l1, l1.blocks, b1, "right", 9999)
@@ -30,17 +28,27 @@ func _initialize() -> void:
 	_ok(int(r["steps"]) == 3, "L1 red slides 3 then exits (got %d)" % int(r["steps"]))
 	_ok(Rules.solve(l1)["solvable"] == true, "L1 solvable")
 
-	# Level 2 — ordering: red blocked until blue leaves.
-	var l2 := _load("res://levels/level_002.json")
+	# Ordering fixture: red can't exit right until blue (at x=4) leaves upward.
+	var l2 := Level.from_dict({
+		"id": 2, "name": "fixture2", "cols": 5, "rows": 5, "walls": [],
+		"blocks": [
+			{ "id": "b1", "color": "red", "cells": [[0,0]], "pos": [2,2] },
+			{ "id": "b2", "color": "blue", "cells": [[0,0]], "pos": [4,2] },
+		],
+		"gates": [
+			{ "color": "red", "side": "right", "lo": 2, "hi": 2 },
+			{ "color": "blue", "side": "top", "lo": 4, "hi": 4 },
+		],
+	})
 	var red: Dictionary = l2.blocks[0]
 	var rr := Rules.slide_result(l2, l2.blocks, red, "right", 9999)
 	_ok(rr["exit"] == false, "L2 red cannot exit while blue blocks")
 	_ok(int(rr["steps"]) == 1, "L2 red slides only 1 (got %d)" % int(rr["steps"]))
 	_ok(Rules.solve(l2)["solvable"] == true, "L2 solvable")
 
-	# Level 3 — multi-color, with a wall.
-	var l3 := _load("res://levels/level_003.json")
-	_ok(Rules.solve(l3)["solvable"] == true, "L3 solvable")
+	# min-moves grading
+	_ok(Rules.solve_min_moves(l1) == 1, "L1 min-moves is 1")
+	_ok(Rules.solve_min_moves(l2) == 2, "L2 min-moves is 2")
 
 	# Negative — a block whose only gate is the wrong color is unsolvable.
 	var bad := Level.from_dict({

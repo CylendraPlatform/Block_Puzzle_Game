@@ -1,15 +1,59 @@
 {
-  "id": 2,
-  "name": "Clear the Way",
-  "cols": 5,
-  "rows": 5,
-  "walls": [],
   "blocks": [
-    { "id": "b1", "color": "red", "cells": [[0,0]], "pos": [2,2] },
-    { "id": "b2", "color": "blue", "cells": [[0,0]], "pos": [4,2] }
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "orange",
+      "id": "b1",
+      "pos": [
+        2,
+        1
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "yellow",
+      "id": "b2",
+      "pos": [
+        4,
+        4
+      ]
+    }
   ],
+  "cols": 5,
   "gates": [
-    { "color": "red", "side": "right", "lo": 2, "hi": 2 },
-    { "color": "blue", "side": "top", "lo": 4, "hi": 4 }
-  ]
+    {
+      "color": "orange",
+      "hi": 4,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "yellow",
+      "hi": 4,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 2,
+  "name": "Level 2",
+  "rows": 5,
+  "walls": []
 }

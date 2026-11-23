@@ -1,0 +1,92 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "purple",
+      "id": "b1",
+      "pos": [
+        4,
+        5
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "yellow",
+      "id": "b2",
+      "pos": [
+        1,
+        2
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "green",
+      "id": "b3",
+      "pos": [
+        1,
+        4
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "purple",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "yellow",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "green",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 40,
+  "name": "Level 40",
+  "rows": 6,
+  "walls": [
+    [
+      4,
+      2
+    ]
+  ]
+}

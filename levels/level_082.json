@@ -1,0 +1,142 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "blue",
+      "id": "b1",
+      "pos": [
+        4,
+        3
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "green",
+      "id": "b2",
+      "pos": [
+        2,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "red",
+      "id": "b3",
+      "pos": [
+        1,
+        4
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "yellow",
+      "id": "b4",
+      "pos": [
+        2,
+        2
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "blue",
+      "id": "b5",
+      "pos": [
+        3,
+        4
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "blue",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "green",
+      "hi": 5,
+      "lo": 0,
+      "side": "top"
+    },
+    {
+      "color": "red",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "yellow",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 82,
+  "name": "Level 82",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      4,
+      2
+    ]
+  ]
+}

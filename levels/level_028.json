@@ -1,0 +1,89 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "purple",
+      "id": "b1",
+      "pos": [
+        4,
+        1
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "blue",
+      "id": "b2",
+      "pos": [
+        1,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "purple",
+      "id": "b3",
+      "pos": [
+        2,
+        3
+      ]
+    }
+  ],
+  "cols": 5,
+  "gates": [
+    {
+      "color": "purple",
+      "hi": 4,
+      "lo": 0,
+      "side": "top"
+    },
+    {
+      "color": "blue",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 28,
+  "name": "Level 28",
+  "rows": 6,
+  "walls": []
+}

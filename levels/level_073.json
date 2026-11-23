@@ -1,0 +1,132 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "color": "purple",
+      "id": "b1",
+      "pos": [
+        3,
+        5
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "blue",
+      "id": "b2",
+      "pos": [
+        1,
+        5
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "yellow",
+      "id": "b3",
+      "pos": [
+        0,
+        5
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "purple",
+      "id": "b4",
+      "pos": [
+        2,
+        3
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "blue",
+      "id": "b5",
+      "pos": [
+        5,
+        0
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "purple",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "blue",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    },
+    {
+      "color": "yellow",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    }
+  ],
+  "id": 73,
+  "name": "Level 73",
+  "rows": 6,
+  "walls": [
+    [
+      1,
+      4
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      4,
+      4
+    ]
+  ]
+}

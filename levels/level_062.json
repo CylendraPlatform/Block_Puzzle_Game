@@ -1,0 +1,114 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "purple",
+      "id": "b1",
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "yellow",
+      "id": "b2",
+      "pos": [
+        2,
+        5
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "orange",
+      "id": "b3",
+      "pos": [
+        4,
+        2
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "purple",
+      "id": "b4",
+      "pos": [
+        2,
+        1
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "purple",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "yellow",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "orange",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 62,
+  "name": "Level 62",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      3
+    ],
+    [
+      1,
+      3
+    ]
+  ]
+}

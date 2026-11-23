@@ -1,0 +1,96 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "color": "red",
+      "id": "b1",
+      "pos": [
+        3,
+        3
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "orange",
+      "id": "b2",
+      "pos": [
+        1,
+        4
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "purple",
+      "id": "b3",
+      "pos": [
+        3,
+        4
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "red",
+      "hi": 5,
+      "lo": 0,
+      "side": "top"
+    },
+    {
+      "color": "orange",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "purple",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    }
+  ],
+  "id": 52,
+  "name": "Level 52",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      2
+    ],
+    [
+      4,
+      2
+    ]
+  ]
+}

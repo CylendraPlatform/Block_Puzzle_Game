@@ -1,0 +1,130 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "red",
+      "id": "b1",
+      "pos": [
+        0,
+        1
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "purple",
+      "id": "b2",
+      "pos": [
+        2,
+        2
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "color": "green",
+      "id": "b3",
+      "pos": [
+        3,
+        3
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "orange",
+      "id": "b4",
+      "pos": [
+        3,
+        2
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "red",
+      "id": "b5",
+      "pos": [
+        3,
+        1
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "red",
+      "hi": 5,
+      "lo": 0,
+      "side": "top"
+    },
+    {
+      "color": "purple",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "green",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    },
+    {
+      "color": "orange",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    }
+  ],
+  "id": 83,
+  "name": "Level 83",
+  "rows": 6,
+  "walls": [
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      4,
+      2
+    ]
+  ]
+}

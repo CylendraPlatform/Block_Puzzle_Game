@@ -1,0 +1,128 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "green",
+      "id": "b1",
+      "pos": [
+        4,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "yellow",
+      "id": "b2",
+      "pos": [
+        3,
+        4
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "red",
+      "id": "b3",
+      "pos": [
+        0,
+        1
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "color": "blue",
+      "id": "b4",
+      "pos": [
+        1,
+        3
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "green",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "yellow",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    },
+    {
+      "color": "red",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "blue",
+      "hi": 5,
+      "lo": 0,
+      "side": "top"
+    }
+  ],
+  "id": 43,
+  "name": "Level 43",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      2
+    ],
+    [
+      2,
+      4
+    ]
+  ]
+}

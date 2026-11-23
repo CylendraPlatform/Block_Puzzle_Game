@@ -31,6 +31,7 @@ func _build() -> void:
 
 	v.add_child(_btn("Play", _on_play))
 	v.add_child(_btn("Levels", _on_levels))
+	v.add_child(_btn("Editor", _on_editor))
 	v.add_child(_btn("Settings", _on_settings))
 
 func _btn(text: String, cb: Callable) -> Button:
@@ -48,6 +49,9 @@ func _on_play() -> void:
 
 func _on_levels() -> void:
 	get_tree().change_scene_to_file("res://scenes/LevelSelect.tscn")
+
+func _on_editor() -> void:
+	get_tree().change_scene_to_file("res://scenes/Editor.tscn")
 
 func _on_settings() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScreen.tscn")

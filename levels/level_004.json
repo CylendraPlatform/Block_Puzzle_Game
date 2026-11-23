@@ -1,0 +1,59 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "yellow",
+      "id": "b1",
+      "pos": [
+        1,
+        2
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "green",
+      "id": "b2",
+      "pos": [
+        2,
+        3
+      ]
+    }
+  ],
+  "cols": 5,
+  "gates": [
+    {
+      "color": "yellow",
+      "hi": 4,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "green",
+      "hi": 4,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 4,
+  "name": "Level 4",
+  "rows": 5,
+  "walls": []
+}

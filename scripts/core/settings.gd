@@ -10,6 +10,7 @@ var music := true
 var haptics := true
 
 var selected_level := 0   ## transient: level index chosen in level-select (not persisted)
+var custom_level = null   ## transient: editor level dict to test-play (null = none)
 
 func _ready() -> void:
 	_load()

@@ -9,11 +9,18 @@ var _levels: Array[String] = []
 var _index := 0
 var _undo: Array = []
 var _unlocked := 0
+var _custom := false
 
 func _ready() -> void:
 	_levels = Catalog.list_paths()
 	_unlocked = Catalog.load_unlocked()
 	_build_ui()
+	if Settings and Settings.custom_level != null:
+		_custom = true
+		var lv := Level.from_dict(Settings.custom_level)
+		_board.load_level(lv)
+		_level_label.text = "Custom Level  "
+		return
 	var start := _unlocked
 	if Settings and Settings.selected_level >= 0:
 		start = Settings.selected_level
@@ -164,7 +171,7 @@ func _on_resume() -> void:
 	_pause_panel.visible = false
 
 func _on_won() -> void:
-	if _index + 1 > _unlocked:
+	if not _custom and _index + 1 > _unlocked:
 		_unlocked = _index + 1
 		Catalog.save_unlocked(_unlocked)
 	if Audio:
@@ -172,6 +179,10 @@ func _on_won() -> void:
 	_win_panel.visible = true
 
 func _on_next() -> void:
+	if _custom:
+		Settings.custom_level = null
+		get_tree().change_scene_to_file("res://scenes/Editor.tscn")
+		return
 	if _index + 1 < _levels.size():
 		_load_index(_index + 1)
 	else:
@@ -179,6 +190,8 @@ func _on_next() -> void:
 		_level_label.text = "All levels complete!"
 
 func _on_menu() -> void:
+	if Settings:
+		Settings.custom_level = null
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_levels() -> void:

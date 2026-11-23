@@ -1,0 +1,88 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "color": "red",
+      "id": "b1",
+      "pos": [
+        4,
+        4
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "blue",
+      "id": "b2",
+      "pos": [
+        4,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "purple",
+      "id": "b3",
+      "pos": [
+        5,
+        1
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "red",
+      "hi": 5,
+      "lo": 0,
+      "side": "top"
+    },
+    {
+      "color": "blue",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "purple",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    }
+  ],
+  "id": 55,
+  "name": "Level 55",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      1
+    ]
+  ]
+}

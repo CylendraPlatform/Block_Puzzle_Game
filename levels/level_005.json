@@ -1,0 +1,59 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "color": "red",
+      "id": "b1",
+      "pos": [
+        3,
+        1
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "color": "orange",
+      "id": "b2",
+      "pos": [
+        1,
+        4
+      ]
+    }
+  ],
+  "cols": 5,
+  "gates": [
+    {
+      "color": "red",
+      "hi": 4,
+      "lo": 0,
+      "side": "right"
+    },
+    {
+      "color": "orange",
+      "hi": 4,
+      "lo": 0,
+      "side": "left"
+    }
+  ],
+  "id": 5,
+  "name": "Level 5",
+  "rows": 5,
+  "walls": []
+}

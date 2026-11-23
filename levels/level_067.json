@@ -1,0 +1,142 @@
+{
+  "blocks": [
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "color": "orange",
+      "id": "b1",
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "color": "green",
+      "id": "b2",
+      "pos": [
+        0,
+        4
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "color": "yellow",
+      "id": "b3",
+      "pos": [
+        0,
+        3
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "color": "blue",
+      "id": "b4",
+      "pos": [
+        4,
+        0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "color": "orange",
+      "id": "b5",
+      "pos": [
+        2,
+        0
+      ]
+    }
+  ],
+  "cols": 6,
+  "gates": [
+    {
+      "color": "orange",
+      "hi": 5,
+      "lo": 0,
+      "side": "left"
+    },
+    {
+      "color": "green",
+      "hi": 5,
+      "lo": 0,
+      "side": "bottom"
+    },
+    {
+      "color": "yellow",
+      "hi": 5,
+      "lo": 0,
+      "side": "right"
+    },
+    {
+      "color": "blue",
+      "hi": 5,
+      "lo": 0,
+      "side": "top"
+    }
+  ],
+  "id": 67,
+  "name": "Level 67",
+  "rows": 6,
+  "walls": [
+    [
+      3,
+      3
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      3
+    ]
+  ]
+}
