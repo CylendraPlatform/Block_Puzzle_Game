@@ -3,8 +3,10 @@ extends Control
 
 var _board: BoardView
 var _level_label: Label
-var _win_panel: Panel
-var _pause_panel: Panel
+var _win_layer: Control
+var _pause_layer: Control
+var _win_panel: PanelContainer
+var _pause_panel: PanelContainer
 var _levels: Array[String] = []
 var _index := 0
 var _undo: Array = []
@@ -37,30 +39,32 @@ func _ready() -> void:
 # UI
 # ---------------------------------------------------------------------------
 func _build_ui() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(Style.make_bg())
+	var safe := UIKit.mount(self)
+	var root := UIKit.column(safe)
+	root.add_theme_constant_override("separation", 8)
 
-	var root := VBoxContainer.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
-
+	# Compact HUD. Menu and Restart live in the pause modal so the board
+	# keeps the width and nothing sits in the cutout band.
 	var bar := HBoxContainer.new()
-	bar.custom_minimum_size = Vector2(0, 72)
-	root.add_child(bar)
-	bar.add_child(_bar_btn("Menu", _on_menu))
-	bar.add_child(_bar_btn("Pause", _on_pause))
-	bar.add_child(_bar_btn("Undo", _on_undo))
-	bar.add_child(_bar_btn("Restart", _on_restart))
-
-	# Level title on its own full-width, left-aligned row so long names never clip.
+	bar.add_theme_constant_override("separation", 8)
+	var pause_btn := UIKit.button("Pause", _on_pause)
+	pause_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	UIKit.apply_compact(pause_btn)
+	var undo_btn := UIKit.button("Undo", _on_undo)
+	undo_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	UIKit.apply_compact(undo_btn)
 	_level_label = Label.new()
-	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_level_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_level_label.add_theme_font_size_override("font_size", 22)
+	_level_label.add_theme_font_size_override("font_size", 16)
 	_level_label.add_theme_color_override("font_color", Style.TEXT_DIM)
-	_level_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_level_label.clip_text = true
-	root.add_child(_level_label)
+	_level_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	bar.add_child(pause_btn)
+	bar.add_child(_level_label)
+	bar.add_child(undo_btn)
+	root.add_child(bar)
 
 	_board = BoardView.new()
 	_board.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -76,80 +80,34 @@ func _build_ui() -> void:
 			Audio.haptic(12))
 	root.add_child(_board)
 
-	_win_panel = _popup("Level Complete!", "Next", _on_next)
-	var wv := _win_panel.get_child(0)   # the VBoxContainer
-	# Level name (under the title).
-	_win_name = Label.new()
-	_win_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_win_name.add_theme_font_size_override("font_size", 22)
-	_win_name.add_theme_color_override("font_color", Style.TEXT_DIM)
+	var win := UIKit.modal(safe, "Level Complete!")
+	_win_layer = win["layer"]
+	_win_panel = win["card"]
+	var wv: VBoxContainer = win["box"]
+	_win_name = UIKit.wrapping_label("", 20, Style.TEXT_DIM)
 	wv.add_child(_win_name)
 	wv.move_child(_win_name, 1)
-	# Stars (under the name).
-	_win_stars = Label.new()
-	_win_stars.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_win_stars.add_theme_font_size_override("font_size", 44)
-	_win_stars.add_theme_color_override("font_color", Style.BLOCK["yellow"])
+	_win_stars = UIKit.wrapping_label("", 32, Style.BLOCK["yellow"])
 	wv.add_child(_win_stars)
-	wv.move_child(_win_stars, 2)        # title, name, stars, Next
-	add_child(_win_panel)
-	_win_panel.visible = false
+	wv.move_child(_win_stars, 2)
+	wv.add_child(UIKit.button("Next", _on_next))
 
-	_pause_panel = _pause_overlay()
-	add_child(_pause_panel)
-	_pause_panel.visible = false
+	var pause := UIKit.modal(safe, "Paused")
+	_pause_layer = pause["layer"]
+	_pause_panel = pause["card"]
+	var pv: VBoxContainer = pause["box"]
+	pv.add_child(UIKit.button("Resume", _on_resume))
+	pv.add_child(UIKit.button("Restart", func() -> void:
+		_set_pause(false)
+		_on_restart()))
+	pv.add_child(UIKit.button("Levels", _on_levels))
+	pv.add_child(UIKit.button("Main Menu", _on_menu))
 
-func _bar_btn(text: String, cb: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.pressed.connect(func():
-		if Audio: Audio.sfx("tap")
-		cb.call())
-	return b
+func _set_win(on: bool) -> void:
+	_win_layer.visible = on
 
-func _popup(title: String, action_text: String, cb: Callable) -> Panel:
-	var panel := Panel.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(360, 200)
-	panel.position = Vector2(-180, -100)
-	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 16)
-	panel.add_child(v)
-	var lbl := Label.new()
-	lbl.text = title
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", 32)
-	v.add_child(lbl)
-	var btn := Button.new()
-	btn.text = action_text
-	btn.pressed.connect(func():
-		if Audio: Audio.sfx("tap")
-		cb.call())
-	v.add_child(btn)
-	return panel
-
-func _pause_overlay() -> Panel:
-	var panel := Panel.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(360, 300)
-	panel.position = Vector2(-180, -150)
-	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 12)
-	panel.add_child(v)
-	var lbl := Label.new()
-	lbl.text = "Paused"
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", 32)
-	v.add_child(lbl)
-	v.add_child(_bar_btn("Resume", _on_resume))
-	v.add_child(_bar_btn("Restart", func(): _pause_panel.visible = false; _on_restart()))
-	v.add_child(_bar_btn("Levels", _on_levels))
-	v.add_child(_bar_btn("Main Menu", _on_menu))
-	return panel
+func _set_pause(on: bool) -> void:
+	_pause_layer.visible = on
 
 # ---------------------------------------------------------------------------
 # Flow
@@ -159,8 +117,8 @@ func _load_index(i: int) -> void:
 		return
 	_index = i
 	_undo.clear()
-	_win_panel.visible = false
-	_pause_panel.visible = false
+	_set_win(false)
+	_set_pause(false)
 	var lv := Catalog.load_level(_levels[i])
 	if lv == null:
 		push_error("failed to load level " + _levels[i])
@@ -209,10 +167,10 @@ func _current_level_id() -> int:
 	return 0 if _custom else _index + 1
 
 func _on_pause() -> void:
-	_pause_panel.visible = true
+	_set_pause(true)
 
 func _on_resume() -> void:
-	_pause_panel.visible = false
+	_set_pause(false)
 
 func _on_won() -> void:
 	var stars := Catalog.star_rating(_moves, _par)
@@ -228,7 +186,7 @@ func _on_won() -> void:
 	if Analytics:
 		Analytics.log_event("level_complete", {"level": _current_level_id(), "moves": _moves, "stars": stars, "undos": _undos})
 	_celebrate()
-	_win_panel.visible = true
+	_set_win(true)
 
 ## Short, controlled celebratory particle burst (auto-frees).
 func _celebrate() -> void:
@@ -265,7 +223,7 @@ func _on_next() -> void:
 			Ads.show_interstitial("level_complete")
 		_load_index(_index + 1)
 	else:
-		_win_panel.visible = false
+		_set_win(false)
 		_level_label.text = "All levels complete!"
 
 func _on_menu() -> void:
