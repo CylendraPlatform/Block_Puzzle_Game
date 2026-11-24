@@ -14,6 +14,8 @@ var _undos := 0
 var _moves := 0
 var _par := 0
 var _win_stars: Label
+var _win_name: Label
+var _level_name := ""
 
 func _ready() -> void:
 	_levels = Catalog.list_paths()
@@ -23,7 +25,8 @@ func _ready() -> void:
 		_custom = true
 		var lv := Level.from_dict(Settings.custom_level)
 		_board.load_level(lv)
-		_level_label.text = "  Custom Level"
+		_level_name = "Custom Level"
+		_level_label.text = "  " + _level_name
 		return
 	var start := _unlocked
 	if Settings and Settings.selected_level >= 0:
@@ -74,13 +77,21 @@ func _build_ui() -> void:
 	root.add_child(_board)
 
 	_win_panel = _popup("Level Complete!", "Next", _on_next)
+	var wv := _win_panel.get_child(0)   # the VBoxContainer
+	# Level name (under the title).
+	_win_name = Label.new()
+	_win_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_win_name.add_theme_font_size_override("font_size", 22)
+	_win_name.add_theme_color_override("font_color", Style.TEXT_DIM)
+	wv.add_child(_win_name)
+	wv.move_child(_win_name, 1)
+	# Stars (under the name).
 	_win_stars = Label.new()
 	_win_stars.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_win_stars.add_theme_font_size_override("font_size", 44)
 	_win_stars.add_theme_color_override("font_color", Style.BLOCK["yellow"])
-	var wv := _win_panel.get_child(0)   # the VBoxContainer
 	wv.add_child(_win_stars)
-	wv.move_child(_win_stars, 1)        # between title and Next
+	wv.move_child(_win_stars, 2)        # title, name, stars, Next
 	add_child(_win_panel)
 	_win_panel.visible = false
 
@@ -155,7 +166,8 @@ func _load_index(i: int) -> void:
 		push_error("failed to load level " + _levels[i])
 		return
 	_board.load_level(lv)
-	_level_label.text = "  Level %d — %s" % [lv.id, lv.name]
+	_level_name = "Level %d — %s" % [lv.id, lv.name]
+	_level_label.text = "  " + _level_name
 	_undos = 0
 	_moves = 0
 	_par = lv.par
@@ -209,6 +221,7 @@ func _on_won() -> void:
 			_unlocked = _index + 1
 			Catalog.save_unlocked(_unlocked)
 		Catalog.set_stars(_index, stars)
+	_win_name.text = _level_name
 	_win_stars.text = "%d / 3 Stars" % stars
 	if Audio:
 		Audio.sfx("win")
