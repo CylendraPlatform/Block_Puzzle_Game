@@ -9,6 +9,7 @@ var id: int = 0
 var name: String = ""
 var cols: int = 5
 var rows: int = 5
+var par: int = 0                          ## shortest solution length (for star rating); 0 = unknown
 var walls: Array[Vector2i] = []          ## blocked interior cells
 var blocks: Array[Dictionary] = []        ## {id:String, color:String, cells:Array[Vector2i], pos:Vector2i}
 var gates: Array[Dictionary] = []         ## {color:String, side:String, lo:int, hi:int}
@@ -20,6 +21,7 @@ static func from_dict(d: Dictionary) -> Level:
 	lv.name = String(d.get("name", ""))
 	lv.cols = int(d.get("cols", 5))
 	lv.rows = int(d.get("rows", 5))
+	lv.par = int(d.get("par", 0))
 	for w in d.get("walls", []):
 		lv.walls.append(Vector2i(int(w[0]), int(w[1])))
 	for b in d.get("blocks", []):

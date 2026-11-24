@@ -3,33 +3,34 @@
     {
       "cells": [
         [
-          0,
-          0
+          0.0,
+          0.0
         ],
         [
-          1,
-          0
+          1.0,
+          0.0
         ]
       ],
       "color": "green",
       "id": "b1",
       "pos": [
-        0,
-        4
+        0.0,
+        4.0
       ]
     }
   ],
-  "cols": 5,
+  "cols": 5.0,
   "gates": [
     {
       "color": "green",
-      "hi": 4,
-      "lo": 0,
+      "hi": 4.0,
+      "lo": 0.0,
       "side": "bottom"
     }
   ],
-  "id": 1,
+  "id": 1.0,
   "name": "First Slide",
-  "rows": 5,
+  "par": 1,
+  "rows": 5.0,
   "walls": []
 }

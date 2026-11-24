@@ -26,6 +26,13 @@ func _build() -> void:
 	title.add_theme_font_size_override("font_size", 56)
 	v.add_child(title)
 
+	var cur := Label.new()
+	var lvl: int = clampi(Catalog.load_unlocked() + 1, 1, 100)
+	cur.text = "Level %d" % lvl
+	cur.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cur.add_theme_color_override("font_color", Style.TEXT_DIM)
+	v.add_child(cur)
+
 	v.add_child(_btn("Play", _on_play))
 	v.add_child(_btn("Levels", _on_levels))
 	v.add_child(_btn("Editor", _on_editor))

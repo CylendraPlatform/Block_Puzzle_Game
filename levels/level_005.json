@@ -3,57 +3,58 @@
     {
       "cells": [
         [
-          0,
-          0
+          0.0,
+          0.0
         ],
         [
-          0,
-          1
+          0.0,
+          1.0
         ]
       ],
       "color": "red",
       "id": "b1",
       "pos": [
-        3,
-        1
+        3.0,
+        1.0
       ]
     },
     {
       "cells": [
         [
-          0,
-          0
+          0.0,
+          0.0
         ],
         [
-          1,
-          0
+          1.0,
+          0.0
         ]
       ],
       "color": "orange",
       "id": "b2",
       "pos": [
-        1,
-        4
+        1.0,
+        4.0
       ]
     }
   ],
-  "cols": 5,
+  "cols": 5.0,
   "gates": [
     {
       "color": "red",
-      "hi": 4,
-      "lo": 0,
+      "hi": 4.0,
+      "lo": 0.0,
       "side": "right"
     },
     {
       "color": "orange",
-      "hi": 4,
-      "lo": 0,
+      "hi": 4.0,
+      "lo": 0.0,
       "side": "left"
     }
   ],
-  "id": 5,
+  "id": 5.0,
   "name": "Level 5",
-  "rows": 5,
+  "par": 2,
+  "rows": 5.0,
   "walls": []
 }

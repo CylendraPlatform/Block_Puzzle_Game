@@ -3,82 +3,83 @@
     {
       "cells": [
         [
-          0,
-          0
+          0.0,
+          0.0
         ],
         [
-          0,
-          1
+          0.0,
+          1.0
         ]
       ],
       "color": "orange",
       "id": "b1",
       "pos": [
-        1,
-        2
+        1.0,
+        2.0
       ]
     },
     {
       "cells": [
         [
-          0,
-          0
+          0.0,
+          0.0
         ],
         [
-          0,
-          1
+          0.0,
+          1.0
         ]
       ],
       "color": "yellow",
       "id": "b2",
       "pos": [
-        0,
-        3
+        0.0,
+        3.0
       ]
     },
     {
       "cells": [
         [
-          0,
-          0
+          0.0,
+          0.0
         ]
       ],
       "color": "blue",
       "id": "b3",
       "pos": [
-        0,
-        1
+        0.0,
+        1.0
       ]
     }
   ],
-  "cols": 6,
+  "cols": 6.0,
   "gates": [
     {
       "color": "orange",
-      "hi": 5,
-      "lo": 0,
+      "hi": 5.0,
+      "lo": 0.0,
       "side": "left"
     },
     {
       "color": "yellow",
-      "hi": 5,
-      "lo": 0,
+      "hi": 5.0,
+      "lo": 0.0,
       "side": "right"
     },
     {
       "color": "blue",
-      "hi": 5,
-      "lo": 0,
+      "hi": 5.0,
+      "lo": 0.0,
       "side": "bottom"
     }
   ],
-  "id": 51,
+  "id": 51.0,
   "name": "Level 51",
-  "rows": 6,
+  "par": 5,
+  "rows": 6.0,
   "walls": [
     [
-      3,
-      4
+      3.0,
+      4.0
     ]
   ]
 }

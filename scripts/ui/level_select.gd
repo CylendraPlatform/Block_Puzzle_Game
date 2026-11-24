@@ -45,11 +45,19 @@ func _build() -> void:
 	var unlocked := Catalog.load_unlocked()
 	for i in paths.size():
 		var b := Button.new()
-		b.text = str(i + 1)
-		b.custom_minimum_size = Vector2(84, 84)
+		b.custom_minimum_size = Vector2(92, 92)
+		var stars := Catalog.get_stars(i)
+		var num := str(i + 1)
 		if i > unlocked:
 			b.disabled = true
+			b.text = num
+		elif stars > 0:
+			b.text = "%s\n%s" % [num, "*".repeat(stars) + "-".repeat(3 - stars)]
 		else:
+			b.text = num
+			if i == unlocked:
+				b.add_theme_color_override("font_color", Style.BLOCK["yellow"])  # current level
+		if i <= unlocked:
 			var idx := i
 			b.pressed.connect(func():
 				if Audio: Audio.sfx("tap")

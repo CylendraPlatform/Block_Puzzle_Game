@@ -11,6 +11,9 @@ var _undo: Array = []
 var _unlocked := 0
 var _custom := false
 var _undos := 0
+var _moves := 0
+var _par := 0
+var _win_stars: Label
 
 func _ready() -> void:
 	_levels = Catalog.list_paths()
@@ -67,6 +70,13 @@ func _build_ui() -> void:
 	root.add_child(_board)
 
 	_win_panel = _popup("Level Complete!", "Next", _on_next)
+	_win_stars = Label.new()
+	_win_stars.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_win_stars.add_theme_font_size_override("font_size", 44)
+	_win_stars.add_theme_color_override("font_color", Style.BLOCK["yellow"])
+	var wv := _win_panel.get_child(0)   # the VBoxContainer
+	wv.add_child(_win_stars)
+	wv.move_child(_win_stars, 1)        # between title and Next
 	add_child(_win_panel)
 	_win_panel.visible = false
 
@@ -143,11 +153,14 @@ func _load_index(i: int) -> void:
 	_board.load_level(lv)
 	_level_label.text = "Level %d  %s  " % [lv.id, lv.name]
 	_undos = 0
+	_moves = 0
+	_par = lv.par
 	if Analytics:
 		Analytics.log_event("level_start", {"level": lv.id})
 
 func _on_move_made(prev: Array) -> void:
 	_undo.append(prev)
+	_moves += 1
 	if Audio:
 		Audio.sfx("slide")
 		Audio.haptic(8)
@@ -172,6 +185,7 @@ func _on_restart() -> void:
 		var lv := Level.from_dict(Settings.custom_level)
 		_board.load_level(lv)
 		_undos = 0
+		_moves = 0
 	else:
 		_load_index(_index)
 
@@ -185,13 +199,17 @@ func _on_resume() -> void:
 	_pause_panel.visible = false
 
 func _on_won() -> void:
-	if not _custom and _index + 1 > _unlocked:
-		_unlocked = _index + 1
-		Catalog.save_unlocked(_unlocked)
+	var stars := Catalog.star_rating(_moves, _par)
+	if not _custom:
+		if _index + 1 > _unlocked:
+			_unlocked = _index + 1
+			Catalog.save_unlocked(_unlocked)
+		Catalog.set_stars(_index, stars)
+	_win_stars.text = "%d / 3 Stars" % stars
 	if Audio:
 		Audio.sfx("win")
 	if Analytics:
-		Analytics.log_event("level_complete", {"level": _current_level_id(), "undos": _undos})
+		Analytics.log_event("level_complete", {"level": _current_level_id(), "moves": _moves, "stars": stars, "undos": _undos})
 	_win_panel.visible = true
 
 func _on_next() -> void:
