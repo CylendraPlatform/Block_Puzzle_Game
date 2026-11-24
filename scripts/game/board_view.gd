@@ -26,9 +26,11 @@ var _visual := {}          ## id -> Vector2 (eased pixel top-left of origin cell
 
 # Drag state
 var _sel_id := ""
-var _grab_cell := Vector2i.ZERO
-var _sel_start := Vector2i.ZERO
+var _grab_px := Vector2.ZERO
+var _sel_start := Vector2i.ZERO      ## logical grid pos at grab
+var _sel_start_px := Vector2.ZERO    ## pixel pos of the grab cell
 var _axis := -1            ## -1 unset, 0 = x, 1 = y
+var _dragging := false
 var _pending_exit := false
 var _bumped := false
 var _pre: Array[Dictionary] = []
@@ -63,6 +65,7 @@ func _copy(src: Array) -> Array[Dictionary]:
 func _clear_selection() -> void:
 	_sel_id = ""
 	_axis = -1
+	_dragging = false
 	_pending_exit = false
 	_bumped = false
 
@@ -125,6 +128,9 @@ func _process(delta: float) -> void:
 	var moving := false
 	for b in blocks:
 		var id: String = b["id"]
+		# While actively dragging, the selected block's visual is finger-driven.
+		if _dragging and id == _sel_id:
+			continue
 		var target := _px_from_cell(b["pos"])
 		if not _visual.has(id):
 			_visual[id] = target
@@ -247,9 +253,11 @@ func _begin_drag(px: Vector2) -> void:
 	if id == "":
 		return
 	_sel_id = id
-	_grab_cell = cell
 	_sel_start = _get_block(id)["pos"]
+	_sel_start_px = _px_from_cell(_sel_start)
+	_grab_px = px
 	_axis = -1
+	_dragging = true
 	_pending_exit = false
 	_bumped = false
 	_pre = snapshot()
@@ -257,26 +265,51 @@ func _begin_drag(px: Vector2) -> void:
 	queue_redraw()
 
 func _update_drag(px: Vector2) -> void:
-	if _sel_id == "":
+	if _sel_id == "" or not _dragging or _cell <= 0.0:
 		return
-	var cell := _cell_from_px(px)
-	var d := cell - _grab_cell
+	var dpx := px - _grab_px
 	if _axis == -1:
-		if abs(d.x) == 0 and abs(d.y) == 0:
+		if dpx.length() < _cell * 0.18:   # small threshold before axis locks
 			return
-		_axis = 0 if abs(d.x) >= abs(d.y) else 1
-	var amount: int = d.x if _axis == 0 else d.y
-	var dir := ""
-	if _axis == 0:
-		dir = "right" if amount > 0 else "left"
-	else:
-		dir = "down" if amount > 0 else "up"
+		_axis = 0 if abs(dpx.x) >= abs(dpx.y) else 1
+	var axis_px: float = dpx.x if _axis == 0 else dpx.y
+	var cells_f := axis_px / _cell
+	var axis_cell := Vector2i(1, 0) if _axis == 0 else Vector2i(0, 1)
+	var axis_vec := Vector2(_cell, 0) if _axis == 0 else Vector2(0, _cell)
 	var block := _get_block(_sel_id)
 	var probe := {"id": block["id"], "color": block["color"], "cells": block["cells"], "pos": _sel_start}
-	var r := Rules.slide_result(level, blocks, probe, dir, abs(amount))
-	block["pos"] = r["pos"]
-	_pending_exit = r["exit"]
-	if amount != 0 and int(r["steps"]) == 0 and not r["exit"] and not _bumped:
+
+	# Max travel + exit possibility each way from the grab position.
+	var pos_dir := "right" if _axis == 0 else "down"
+	var neg_dir := "left" if _axis == 0 else "up"
+	var rp := Rules.slide_result(level, blocks, probe, pos_dir, 9999)
+	var rn := Rules.slide_result(level, blocks, probe, neg_dir, 9999)
+	var max_pos: int = int(rp["steps"])
+	var max_neg: int = int(rn["steps"])
+
+	var logical := 0
+	_pending_exit = false
+	var vis_cells := cells_f
+	if cells_f >= 0.0:
+		logical = mini(roundi(cells_f), max_pos)
+		var over := 0.6 if rp["exit"] else 0.22   # gate pull vs collision resistance
+		vis_cells = clampf(cells_f, 0.0, float(max_pos) + over)
+		if rp["exit"] and cells_f > float(max_pos) + 0.4:
+			_pending_exit = true
+	else:
+		logical = -mini(roundi(-cells_f), max_neg)
+		var over2 := 0.6 if rn["exit"] else 0.22
+		vis_cells = clampf(cells_f, -(float(max_neg) + over2), 0.0)
+		if rn["exit"] and -cells_f > float(max_neg) + 0.4:
+			_pending_exit = true
+
+	block["pos"] = _sel_start + axis_cell * logical
+	_visual[_sel_id] = _sel_start_px + axis_vec * vis_cells
+
+	# Collision bump when the finger pushes into an immovable obstacle.
+	var pushing_blocked: bool = (cells_f > 0.5 and max_pos == 0 and not rp["exit"]) \
+		or (cells_f < -0.5 and max_neg == 0 and not rn["exit"])
+	if pushing_blocked and not _bumped:
 		_bumped = true
 		bumped.emit()
 	queue_redraw()
