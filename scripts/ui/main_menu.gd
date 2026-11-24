@@ -1,7 +1,6 @@
 extends Control
 ## Main menu: Play (resume at saved progress), Levels, Settings.
-
-const BG := Color("#1b1e2b")
+## The level editor is a development tool and is not shown on player builds.
 
 func _ready() -> void:
 	if Audio:
@@ -9,43 +8,27 @@ func _ready() -> void:
 	_build()
 
 func _build() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(Style.make_bg())
-
+	var safe := UIKit.mount(self)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 20)
-	center.add_child(v)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	safe.add_child(center)
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 16)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.add_child(column)
+	center.resized.connect(func() -> void:
+		column.custom_minimum_size.x = minf(420.0, maxf(0.0, center.size.x)))
 
-	var title := Label.new()
-	title.text = "BLOCK PUZZLE"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 56)
-	v.add_child(title)
-
-	var cur := Label.new()
+	column.add_child(UIKit.wrapping_label("BLOCK PUZZLE", 48))
 	var lvl: int = clampi(Catalog.load_unlocked() + 1, 1, 100)
-	cur.text = "Level %d" % lvl
-	cur.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cur.add_theme_color_override("font_color", Style.TEXT_DIM)
-	v.add_child(cur)
-
-	v.add_child(_btn("Play", _on_play))
-	v.add_child(_btn("Levels", _on_levels))
-	v.add_child(_btn("Editor", _on_editor))
-	v.add_child(_btn("Settings", _on_settings))
-
-func _btn(text: String, cb: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(260, 64)
-	b.pressed.connect(func():
-		if Audio: Audio.sfx("tap")
-		cb.call())
-	return b
+	column.add_child(UIKit.wrapping_label("Level %d" % lvl, 24, Style.TEXT_DIM))
+	column.add_child(UIKit.button("Play", _on_play))
+	column.add_child(UIKit.button("Levels", _on_levels))
+	if DevAccess.enabled():
+		column.add_child(UIKit.button("Editor", _on_editor))
+	column.add_child(UIKit.button("Settings", _on_settings))
 
 func _on_play() -> void:
 	Settings.selected_level = -1   # resume at saved progress

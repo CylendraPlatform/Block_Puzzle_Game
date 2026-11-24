@@ -36,9 +36,10 @@ Block settle lerp speed `EASE_SPEED` 22; exit pop `EXIT_DUR` 0.22; gate pulse pe
 `GATE_PULSE` 1.6; squash/stretch amount `SQUASH` 0.06 (reserved for Phase C).
 
 ## Responsive layout
-Board sizes to fill the available area (`cell = min(w/(cols+0.7), h/(rows+0.7))`),
-centered, so it dominates the screen across aspect ratios with minimal dead space.
-Safe-area / display-cutout handling is a Phase F item.
+Board sizes to fill the available width and is pinned under the HUD, with gate
+clearance, so leftover portrait space sits below the puzzle.
+Interactive controls use `SafeArea` (`scripts/ui/safe_area.gd`) and platform display
+insets. The premium art pass is still open; this is not final visual design.
 
 ## Rendering approach
 Pure 2D. Rounded/beveled/shadowed shapes are drawn with `StyleBoxFlat` via

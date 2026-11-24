@@ -18,6 +18,9 @@ scripts/
     game.gd       controller: level flow, HUD, pause, undo, win, analytics hooks
   ui/
     main_menu.gd, level_select.gd, settings_ui.gd   screens (built in code)
+    safe_area.gd  display-cutout padding
+    ui_kit.gd     shared buttons, modals, screen mount
+    dev_access.gd editor entry gate (`--dev` or the Godot editor)
   editor/
     editor_canvas.gd  renders editable state + reports cell/edge taps
     editor.gd         tools, validate (real solver), save/load, test-play
@@ -79,3 +82,11 @@ null-guarded at call sites so scenes also run in isolation (e.g. screenshot tool
 Export preset `com.blockpuzzle.game`, arm64-v8a + armeabi-v7a, `use_gradle_build=false`
 (repacks the prebuilt template - no Android Studio needed). Permissions: VIBRATE
 (haptics); INTERNET off. Immersive mode on (Android shows a one-time full-screen hint).
+
+## Safe area
+`SafeArea` (`scripts/ui/safe_area.gd`) reads `DisplayServer.get_display_safe_area()`
+and converts that window-pixel rectangle into the stretched viewport. Every screen
+mounts it through `UIKit.mount`, so backgrounds can paint edge to edge while buttons
+stay inside the inset plus 16px padding. Tests set `SafeArea.use_simulation`; shipping
+builds do not hardcode a phone model. The level editor is omitted from the player
+menu unless the process has the `editor` feature or the user argument `--dev`.

@@ -80,7 +80,10 @@ func _recompute_layout() -> void:
 	_cell = minf(size.x / (level.cols + 0.7), size.y / (level.rows + 0.7))
 	var bw := _cell * level.cols
 	var bh := _cell * level.rows
-	_origin = Vector2((size.x - bw) * 0.5, (size.y - bh) * 0.5)
+	var top := _cell * 0.4
+	if top + bh > size.y - _cell * 0.4:
+		top = maxf(0.0, (size.y - bh) * 0.5)
+	_origin = Vector2((size.x - bw) * 0.5, top)
 
 ## Draw a rounded rect (optionally bordered / shadowed) via a pooled StyleBoxFlat.
 ## Reuses one box (draw_style_box reads it immediately) to avoid per-frame allocs.
