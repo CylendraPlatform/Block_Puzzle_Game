@@ -23,7 +23,7 @@ func _ready() -> void:
 		_custom = true
 		var lv := Level.from_dict(Settings.custom_level)
 		_board.load_level(lv)
-		_level_label.text = "Custom Level  "
+		_level_label.text = "  Custom Level"
 		return
 	var start := _unlocked
 	if Settings and Settings.selected_level >= 0:
@@ -48,12 +48,16 @@ func _build_ui() -> void:
 	bar.add_child(_bar_btn("Pause", _on_pause))
 	bar.add_child(_bar_btn("Undo", _on_undo))
 	bar.add_child(_bar_btn("Restart", _on_restart))
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.add_child(spacer)
+
+	# Level title on its own full-width, left-aligned row so long names never clip.
 	_level_label = Label.new()
+	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_level_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bar.add_child(_level_label)
+	_level_label.add_theme_font_size_override("font_size", 22)
+	_level_label.add_theme_color_override("font_color", Style.TEXT_DIM)
+	_level_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_level_label.clip_text = true
+	root.add_child(_level_label)
 
 	_board = BoardView.new()
 	_board.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -151,7 +155,7 @@ func _load_index(i: int) -> void:
 		push_error("failed to load level " + _levels[i])
 		return
 	_board.load_level(lv)
-	_level_label.text = "Level %d — %s  " % [lv.id, lv.name]
+	_level_label.text = "  Level %d — %s" % [lv.id, lv.name]
 	_undos = 0
 	_moves = 0
 	_par = lv.par
