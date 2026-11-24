@@ -9,7 +9,7 @@
 
 An opt-in developer path plays schema v2 through `PuzzleEngine`. `PuzzleSessionV2` owns state, history, undo, restart, and win. `BoardViewV2` draws connected silhouettes and gate bars from `side`/`lo`/`hi`, and turns a drag into one `PuzzleAction`. The commercial campaign still uses `Rules`, `BoardView`, `levels/`, and `user://progress.save`.
 
-The pilot is `scenes/Pilot.tscn`. It is on the main menu only when `DevAccess.enabled()` is true (the Godot editor, or a player build launched with `--dev`). Progress for the pilot is `user://pilot_v2.save` and stores an index only.
+The pilot is `scenes/Pilot.tscn`. It is on the main menu when `DevAccess.enabled()` is true: the Godot editor, a debug export, or a launch with `--dev`. A release export hides it. Progress for the pilot is `user://pilot_v2.save` and stores an index only.
 
 Fifteen original levels live in `levels_v2/pilot/`. All fifteen solved and replayed to a win. See the table in `docs/v2/PILOT_LEVELS.md`.
 
@@ -64,6 +64,39 @@ Pilot solver results from `test_v2_pilot.gd`:
 Desktop screenshots, not device photos, are under `build/qa/pilot/` (gitignored): `360x800_v2_001.png`, `360x800_v2_006.png`, `360x800_v2_010.png`, `360x800_v2_015.png`, `412x915_v2_006.png`, `360x800_cutout_v2_010.png`. The cutout uses simulated insets `(0, 96, 0, 48)`. A 720×1280 OS window was taller than the desktop framebuffer and produced an empty image, so those files are not evidence. The shot script draws into a `SubViewport` instead.
 
 Headless Godot printed ObjectDB leak warnings and `1 resources still in use` on several scripts. Those warnings are not assertion failures. `test_v2_campaign.gd` was not rerun. The previous result remains solved=60, cap=40, failed=0 at cap 2500.
+
+## QA debug APK
+
+Godot 4.7.2 exported a debug APK on 2026-11-24. The command was:
+
+`Godot_v4.7.2-stable_win64_console.exe --headless --path . --export-debug "Android" build/android/BlockPuzzle-TD3-QA-debug.apk`
+
+Exit 0. `apksigner` verified APK Signature Scheme v2 and v3. The signer is the local debug keystore. That keystore and the APK are not in git.
+
+| Field | Value |
+| --- | --- |
+| File | `build/android/BlockPuzzle-TD3-QA-debug.apk` |
+| Size | 59,133,923 bytes |
+| SHA-256 | `9ef611080c6235d61e35a305673521ce22278d1ded4d971f74a72937ab9bf666` |
+| Package | `com.blockpuzzle.game` |
+| Contents | 100 `levels/level_*.json` files and 15 `levels_v2/pilot/v2_*.json` files |
+
+`OS.is_debug_build()` shows **Editor** and **v2 Pilot** on this debug package. A release export does not. The local export preset, which is gitignored, includes `levels_v2/pilot/*.json`.
+
+Installed on the already running `Pixel_10_Pro_XL` emulator (`sdk_gphone16k_x86_64`, ABI list `x86_64,arm64-v8a`, 1344×2992). This is an emulator session, not a physical phone.
+
+| Check | Result |
+| --- | --- |
+| Main menu opens | Pass. Existing campaign label still read Level 11. |
+| v2 Pilot visible | Pass. Debug menu shows Editor and v2 Pilot. |
+| Level loads | Pass. v2-001, solver line `SOLVED (1)`, move count 0. |
+| Drag | Pass. A one-cell swipe moved the piece and raised the count to 1. |
+| Undo | Pass. The piece and the count returned to the start. |
+| Restart | Pass. After another one-cell move, Restart restored the start. |
+| Exit | Pass. A second drag from the last cell through the gate opened **Pilot Clear**. The count was 2 because the first drag stopped on the last cell. |
+| Crashes | None in the recent error log. |
+
+A single swipe from the first cell to the right edge stopped on the last cell instead of exiting. The exit committed when the next drag crossed the gate. Screenshots are in `build/qa/android/` and are not committed.
 
 ## Not accepted yet
 
