@@ -1,7 +1,6 @@
 extends Control
 ## Level editor: place walls/blocks/gates, validate solvability, save, test-play.
 
-const BG := Color("#1b1e2b")
 const SAVE_PATH := "user://custom_level.json"
 const COLORS := ["red", "blue", "green", "yellow", "orange", "purple"]
 const SHAPES := [
@@ -25,48 +24,40 @@ func _ready() -> void:
 	_refresh()
 
 func _build() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	var root := VBoxContainer.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var root := UIKit.column(UIKit.mount(self))
 	root.add_theme_constant_override("separation", 6)
-	add_child(root)
 
-	var r1 := HBoxContainer.new()
-	r1.add_child(_btn("Back", func(): get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")))
-	r1.add_child(_btn("Validate", _on_validate))
-	r1.add_child(_btn("Save", _on_save))
-	r1.add_child(_btn("Load", _on_load))
-	r1.add_child(_btn("Test", _on_test))
-	r1.add_child(_btn("Clear", _on_clear))
-	root.add_child(r1)
+	root.add_child(_flow([
+		_btn("Back", func(): get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")),
+		_btn("Validate", _on_validate),
+		_btn("Save", _on_save),
+		_btn("Load", _on_load),
+		_btn("Test", _on_test),
+		_btn("Clear", _on_clear),
+	]))
 
-	var r2 := HBoxContainer.new()
+	var tools: Array[Button] = []
 	for t in ["block", "wall", "gate", "erase"]:
 		var tt: String = t
-		r2.add_child(_btn(t.capitalize(), func(): _tool = tt; _refresh()))
-	r2.add_child(_btn("Shape", func(): _shape = (_shape + 1) % SHAPES.size(); _refresh()))
-	r2.add_child(_btn("Cols-", func(): _resize(-1, 0)))
-	r2.add_child(_btn("Cols+", func(): _resize(1, 0)))
-	r2.add_child(_btn("Rows-", func(): _resize(0, -1)))
-	r2.add_child(_btn("Rows+", func(): _resize(0, 1)))
-	root.add_child(r2)
+		tools.append(_btn(t.capitalize(), func(): _tool = tt; _refresh()))
+	tools.append(_btn("Shape", func(): _shape = (_shape + 1) % SHAPES.size(); _refresh()))
+	tools.append(_btn("Cols-", func(): _resize(-1, 0)))
+	tools.append(_btn("Cols+", func(): _resize(1, 0)))
+	tools.append(_btn("Rows-", func(): _resize(0, -1)))
+	tools.append(_btn("Rows+", func(): _resize(0, 1)))
+	root.add_child(_flow(tools))
 
-	var r3 := HBoxContainer.new()
+	var colors: Array[Button] = []
 	for c in COLORS:
 		var cc: String = c
-		var b := Button.new()
-		b.text = c.substr(0, 1).to_upper()
+		var b := _btn(c.substr(0, 1).to_upper(), func(): _color = cc; _refresh())
 		b.add_theme_color_override("font_color", EditorCanvas.COLORS[c])
-		b.pressed.connect(func(): _color = cc; _refresh())
-		r3.add_child(b)
-	root.add_child(r3)
+		colors.append(b)
+	root.add_child(_flow(colors))
 
 	_status = Label.new()
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(_status)
 
 	_canvas = EditorCanvas.new()
@@ -77,12 +68,19 @@ func _build() -> void:
 	_canvas.edge_tapped.connect(_on_edge)
 	root.add_child(_canvas)
 
+func _flow(buttons: Array) -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 6)
+	for b in buttons:
+		flow.add_child(b)
+	return flow
+
 func _btn(text: String, cb: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.pressed.connect(func():
-		if Audio: Audio.sfx("tap")
-		cb.call())
+	var b := UIKit.button(text, cb)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	UIKit.apply_compact(b)
 	return b
 
 func _refresh() -> void:
