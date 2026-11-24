@@ -117,8 +117,8 @@
     }
   ],
   "id": 50.0,
-  "name": "Level 50",
-  "par": 6,
+  "name": "Locked Gate",
+  "par": 6.0,
   "rows": 6.0,
   "walls": [
     [

@@ -55,8 +55,8 @@
     }
   ],
   "id": 9.0,
-  "name": "Level 9",
-  "par": 2,
+  "name": "Open Slide",
+  "par": 2.0,
   "rows": 5.0,
   "walls": []
 }

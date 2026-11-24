@@ -113,8 +113,8 @@
     }
   ],
   "id": 72.0,
-  "name": "Level 72",
-  "par": 5,
+  "name": "Slow Path",
+  "par": 5.0,
   "rows": 6.0,
   "walls": [
     [

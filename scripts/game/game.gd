@@ -151,7 +151,7 @@ func _load_index(i: int) -> void:
 		push_error("failed to load level " + _levels[i])
 		return
 	_board.load_level(lv)
-	_level_label.text = "Level %d  %s  " % [lv.id, lv.name]
+	_level_label.text = "Level %d — %s  " % [lv.id, lv.name]
 	_undos = 0
 	_moves = 0
 	_par = lv.par

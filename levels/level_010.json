@@ -53,8 +53,8 @@
     }
   ],
   "id": 10.0,
-  "name": "Level 10",
-  "par": 3,
+  "name": "Locked Slide",
+  "par": 3.0,
   "rows": 5.0,
   "walls": []
 }

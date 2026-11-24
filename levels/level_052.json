@@ -81,8 +81,8 @@
     }
   ],
   "id": 52.0,
-  "name": "Level 52",
-  "par": 4,
+  "name": "Slow Gate",
+  "par": 4.0,
   "rows": 6.0,
   "walls": [
     [

@@ -65,8 +65,8 @@
     }
   ],
   "id": 6.0,
-  "name": "Make Way",
-  "par": 3,
+  "name": "Twin Slide",
+  "par": 3.0,
   "rows": 5.0,
   "walls": []
 }

@@ -73,8 +73,8 @@
     }
   ],
   "id": 32.0,
-  "name": "Level 32",
-  "par": 4,
+  "name": "Slow Shuffle",
+  "par": 4.0,
   "rows": 6.0,
   "walls": [
     [
