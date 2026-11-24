@@ -21,24 +21,27 @@ func _ready() -> void:
 		_load(_index)
 
 func _build() -> void:
-	var safe := UIKit.mount(self)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(TD35Theme.make_bg())
+	var safe := SafeArea.new()
+	add_child(safe)
 	var column := UIKit.column(safe)
 	column.add_theme_constant_override("separation", 8)
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	var back := UIKit.button("Menu", _on_menu)
-	UIKit.apply_compact(back)
+	TD35Theme.style_compact(back)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var restart := UIKit.button("Restart", _on_restart)
-	UIKit.apply_compact(restart)
+	TD35Theme.style_compact(restart)
 	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var undo := UIKit.button("Undo", _on_undo)
-	UIKit.apply_compact(undo)
+	TD35Theme.style_compact(undo)
 	undo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_title = Label.new()
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.add_theme_font_size_override("font_size", 16)
-	_title.add_theme_color_override("font_color", Style.TEXT_DIM)
+	_title.add_theme_font_size_override("font_size", 20)
+	_title.add_theme_color_override("font_color", TD35Theme.NAVY)
 	_title.clip_text = true
 	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	bar.add_child(back)
@@ -51,9 +54,9 @@ func _build() -> void:
 	_prompt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_prompt.add_theme_font_size_override("font_size", 16)
-	_prompt.add_theme_color_override("font_color", Style.TEXT)
+	_prompt.add_theme_color_override("font_color", TD35Theme.NAVY)
 	var hide := UIKit.button("Hide", func() -> void: _prompt_row.visible = false)
-	UIKit.apply_compact(hide)
+	TD35Theme.style_compact(hide)
 	hide.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_prompt_row.add_child(_prompt)
 	_prompt_row.add_child(hide)
@@ -70,14 +73,23 @@ func _build() -> void:
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.add_theme_font_size_override("font_size", 13)
-	_status.add_theme_color_override("font_color", Style.TEXT_DIM)
+	_status.add_theme_font_size_override("font_size", 15)
+	_status.add_theme_color_override("font_color", TD35Theme.NAVY)
 	column.add_child(_status)
-	var win := UIKit.modal(safe, "Pilot Clear")
+	var win := UIKit.modal(safe, "Level Complete!")
 	_win_layer = win["layer"]
+	var card: PanelContainer = win["card"]
+	card.add_theme_stylebox_override("panel", TD35Theme.card_box())
 	var box: VBoxContainer = win["box"]
-	box.add_child(UIKit.button("Next", _on_next))
-	box.add_child(UIKit.button("Menu", _on_menu))
+	var heading := box.get_child(0) as Label
+	if heading != null:
+		heading.add_theme_color_override("font_color", TD35Theme.NAVY)
+	var next := UIKit.button("Next", _on_next)
+	TD35Theme.style_button(next, true)
+	var menu := UIKit.button("Menu", _on_menu)
+	TD35Theme.style_button(menu, false)
+	box.add_child(next)
+	box.add_child(menu)
 
 func _load(index: int) -> void:
 	if index < 0 or index >= _paths.size():
@@ -97,16 +109,19 @@ func _load(index: int) -> void:
 	_prompt_row.visible = true
 	var metrics: Dictionary = _definition.get("authored_metrics", {})
 	_prompt.text = str(metrics.get("prompt", ""))
-	_title.text = "%s  %d/%d" % [str(_definition.get("name", _definition.get("id", ""))), index + 1, _paths.size()]
+	_title.text = "Level %d" % (index + 1)
 	_refresh_status()
 
 func _refresh_status() -> void:
 	if _session == null:
 		return
+	_status.text = "Moves %d" % _session.move_count()
+	if not DevAccess.enabled():
+		return
 	var solved := SolverV2.solve(_definition, PuzzleState.from_definition(_definition), 8000)
 	var verdict := str(solved["status"])
 	var length := int(solved["solution_length"])
-	_status.text = "Dev  %s  moves %d  solver %s (%s)" % [str(_definition.get("id", "")), _session.move_count(), verdict, str(length)]
+	_status.text = "Moves %d    Dev %s %s (%s)" % [_session.move_count(), str(_definition.get("id", "")), verdict, str(length)]
 
 func _on_commit(action: PuzzleAction) -> void:
 	if _session == null or _session.input_locked:

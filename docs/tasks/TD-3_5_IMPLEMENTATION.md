@@ -1,5 +1,5 @@
 # Cursor / Claude Code execution task — TD-3.5
-**Status: NOT STARTED — design pack delivered only.**
+**Status: IMPLEMENTED, NOT ACCEPTED.** Gameplay, menu, and level-complete screens use native Godot drawing. No physical Android device session and no owner visual sign-off. Do not treat this as product-accepted.
 **Working branch:** `feat/td35-premium-playful-visuals` (derived from PR #6). 
 **Stacked PR base:** `feat/td3-geometry-gates-pilot` until parent PR #6 merges.
 **Purpose:** implement visually coherent premium mobile game gameplay, menu and level-complete UI from the design system, with no new rules/monetization.

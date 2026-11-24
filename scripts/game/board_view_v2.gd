@@ -126,7 +126,8 @@ func _layout() -> void:
 	var avail := Vector2(maxf(1.0, size.x - margin * 2.0), maxf(1.0, size.y - margin * 2.0))
 	_cell = minf(avail.x / float(cols), avail.y / float(rows))
 	var board_size := Vector2(_cell * cols, _cell * rows)
-	_origin = (size - board_size) * 0.5
+	var spare_y := maxf(0.0, size.y - board_size.y)
+	_origin = Vector2((size.x - board_size.x) * 0.5, minf(28.0, spare_y * 0.16))
 
 func _px(cell: Vector2i) -> Vector2:
 	return _origin + Vector2(cell) * _cell
@@ -142,21 +143,26 @@ func _draw() -> void:
 	var board: Dictionary = definition.get("board", {})
 	var cols := int(board.get("cols", 1))
 	var rows := int(board.get("rows", 1))
-	var tray := Rect2(_origin - Vector2(_cell, _cell) * 0.16, Vector2(cols, rows) * _cell + Vector2(_cell, _cell) * 0.32)
-	_round(tray, Style.BOARD, _cell * 0.18)
+	var frame := _cell * 0.26
+	var outer := Rect2(_origin - Vector2(frame, frame), Vector2(cols, rows) * _cell + Vector2(frame, frame) * 2.0)
+	_round(outer, TD35Theme.FRAME, int(clampf(_cell * 0.22, 12.0, 28.0)))
+	var inner := Rect2(_origin, Vector2(cols, rows) * _cell)
+	_round(inner, TD35Theme.BASE, int(clampf(_cell * 0.12, 8.0, 18.0)))
+	var gap := clampf(_cell * 0.08, 2.0, 4.0)
 	for y in rows:
 		for x in cols:
-			var rect := Rect2(_px(Vector2i(x, y)) + Vector2.ONE * _cell * 0.06, Vector2.ONE * _cell * 0.88)
-			_round(rect, Style.CELL, _cell * 0.12)
+			var rect := Rect2(_px(Vector2i(x, y)) + Vector2(gap, gap), Vector2(_cell - gap * 2.0, _cell - gap * 2.0))
+			_round(rect, TD35Theme.CELL, int(clampf(_cell * 0.16, 6.0, 14.0)))
 	for wall in board.get("walls", []):
 		if typeof(wall) != TYPE_ARRAY or wall.size() != 2:
 			continue
-		var rect := Rect2(_px(Vector2i(int(wall[0]), int(wall[1]))) + Vector2.ONE * _cell * 0.04, Vector2.ONE * _cell * 0.92)
-		_round(rect, Style.WALL, _cell * 0.14)
+		var rect := Rect2(_px(Vector2i(int(wall[0]), int(wall[1]))) + Vector2(gap * 0.4, gap * 0.4), Vector2(_cell - gap * 0.8, _cell - gap * 0.8))
+		_round(rect, TD35Theme.WALL, int(clampf(_cell * 0.14, 6.0, 12.0)))
 	for gate in definition.get("gates", []):
 		if typeof(gate) == TYPE_DICTIONARY:
 			_draw_gate(gate, cols, rows)
 	var geometry := PuzzleEngine._geometry(definition)
+	_draw_preview(geometry)
 	var ids: Array = geometry.keys()
 	ids.sort()
 	for id in ids:
@@ -176,31 +182,52 @@ func _draw() -> void:
 		var slide := from + Vector2(_dir(str(item["dir"]))) * _cell * (0.35 + travel * 1.2)
 		_draw_piece(exit_id, geometry[exit_id], slide, 1.0 - travel)
 
+func _draw_preview(geometry: Dictionary) -> void:
+	if not _dragging or _axis == "" or _drag_id == "" or not geometry.has(_drag_id):
+		return
+	var limits := _limits(_axis)
+	var max_dist := int(limits["max"])
+	var travel := _drag_px / maxf(_cell, 0.001)
+	var steps := steps_for_drag(travel, max_dist, bool(limits["exit"]), _near_screen_edge(_axis, _pointer))
+	if steps <= 0:
+		return
+	var landing := mini(steps, max_dist)
+	var extra := 0.45 if steps > max_dist else 0.0
+	var base := _px(_drag_origin + _dir(_axis) * landing) + Vector2(_dir(_axis)) * _cell * extra
+	_draw_piece(_drag_id, geometry[_drag_id], base, 0.15)
+
 func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 	var accepts: Array = gate.get("accept", [])
 	var color_name := "red"
 	if not accepts.is_empty():
 		color_name = str(accepts[0])
-	var color := Style.block_color(color_name)
+	var color := TD35Theme.piece_color(color_name)
 	var lo := int(gate.get("lo", 0))
 	var hi := int(gate.get("hi", lo))
 	var span := float(hi - lo + 1) * _cell
-	var thick := _cell * 0.28
-	var inset := _cell * 0.08
-	var rect := Rect2()
+	var frame := _cell * 0.26
+	var pad := clampf(_cell * 0.08, 2.0, 6.0)
+	var mouth := clampf(_cell * 0.2, 8.0, 22.0)
+	var hole := Rect2()
+	var lip := Rect2()
 	var side := str(gate.get("side", ""))
 	match side:
 		"left":
-			rect = Rect2(_origin.x - thick, _origin.y + lo * _cell + inset, thick, span - inset * 2.0)
+			hole = Rect2(_origin.x - frame, _origin.y + lo * _cell + pad, frame + 2.0, span - pad * 2.0)
+			lip = Rect2(_origin.x - mouth, hole.position.y, mouth + 2.0, hole.size.y)
 		"right":
-			rect = Rect2(_origin.x + cols * _cell, _origin.y + lo * _cell + inset, thick, span - inset * 2.0)
+			hole = Rect2(_origin.x + cols * _cell - 2.0, _origin.y + lo * _cell + pad, frame + 2.0, span - pad * 2.0)
+			lip = Rect2(_origin.x + cols * _cell - 2.0, hole.position.y, mouth + 2.0, hole.size.y)
 		"top":
-			rect = Rect2(_origin.x + lo * _cell + inset, _origin.y - thick, span - inset * 2.0, thick)
+			hole = Rect2(_origin.x + lo * _cell + pad, _origin.y - frame, span - pad * 2.0, frame + 2.0)
+			lip = Rect2(hole.position.x, _origin.y - mouth, hole.size.x, mouth + 2.0)
 		"bottom":
-			rect = Rect2(_origin.x + lo * _cell + inset, _origin.y + rows * _cell, span - inset * 2.0, thick)
+			hole = Rect2(_origin.x + lo * _cell + pad, _origin.y + rows * _cell - 2.0, span - pad * 2.0, frame + 2.0)
+			lip = Rect2(hole.position.x, _origin.y + rows * _cell - 2.0, hole.size.x, mouth + 2.0)
 		_:
 			return
-	_round(rect, color, thick * 0.45)
+	_round(hole, TD35Theme.CANVAS, int(clampf(_cell * 0.12, 4.0, 12.0)))
+	_round(lip, color, int(clampf(_cell * 0.1, 3.0, 8.0)))
 
 func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) -> void:
 	if _dragging and id == _drag_id and alpha > 0.99:
@@ -208,30 +235,39 @@ func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) 
 	var corners := _silhouette(geometry["offsets"])
 	if corners.is_empty():
 		return
-	var shadow := PackedVector2Array()
-	var fill := PackedVector2Array()
 	var center := Vector2.ZERO
 	for corner in corners:
 		center += corner
 	center /= float(corners.size())
+	var color := TD35Theme.piece_color(str(geometry["color"]))
+	if id == _drag_id and alpha > 0.99:
+		color = color.lightened(0.05)
+	color.a = alpha
+	var shadow := PackedVector2Array()
+	var body := PackedVector2Array()
+	var gloss := PackedVector2Array()
+	var lifted := 1.0
+	if id == _drag_id and alpha > 0.99:
+		lifted = 1.025
 	for corner in corners:
 		var pixel := base + Vector2(corner) * _cell
-		shadow.append(pixel + Vector2(0, _cell * 0.08))
 		var from_center := pixel - (base + center * _cell)
-		fill.append(base + center * _cell + from_center * 0.92)
-	var color := Style.block_color(str(geometry["color"]))
-	if id == _drag_id and alpha > 0.99:
-		color = color.lightened(0.08)
-	color.a = alpha
-	var shadow_color := Color(0, 0, 0, 0.28 * alpha)
+		var placed := base + center * _cell + from_center * 0.94 * lifted
+		shadow.append(placed + Vector2(0, _cell * 0.08))
+		body.append(placed)
+		gloss.append(placed + Vector2(-_cell * 0.03, -_cell * 0.06))
+	var shadow_color := Color(TD35Theme.SHADOW, 0.28 * alpha)
 	draw_colored_polygon(shadow, shadow_color)
-	draw_colored_polygon(fill, color)
-	var outline := fill.duplicate()
+	var edge := color.darkened(0.28)
+	edge.a = alpha
+	draw_colored_polygon(body, color)
+	var shine := color.lightened(0.28)
+	shine.a = 0.42 * alpha
+	draw_colored_polygon(gloss, shine)
+	var outline := body.duplicate()
 	if outline.size() > 0:
 		outline.append(outline[0])
-	var edge := color.darkened(0.35)
-	edge.a = alpha
-	draw_polyline(outline, edge, maxf(2.0, _cell * 0.06), true)
+	draw_polyline(outline, edge, maxf(2.0, _cell * 0.045), true)
 
 func _silhouette(offsets: Array) -> PackedVector2Array:
 	var occupied := {}
@@ -400,7 +436,4 @@ func _dir(direction: String) -> Vector2i:
 	return Vector2i.ZERO
 
 func _round(rect: Rect2, color: Color, radius: float) -> void:
-	var box := StyleBoxFlat.new()
-	box.bg_color = color
-	box.set_corner_radius_all(int(radius))
-	draw_style_box(box, rect)
+	draw_style_box(TD35Theme.round_box(color, int(radius)), rect)

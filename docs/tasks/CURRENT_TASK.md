@@ -1,3 +1,33 @@
+# TD-3.5 — Premium playful visuals
+
+**Status:** Implemented on `feat/td35-premium-playful-visuals`. Not accepted. No physical Android device session and no owner visual sign-off.
+**Parent:** `feat/td3-geometry-gates-pilot` (PR #6, unmerged). Design pack and this implementation update PR #7. Neither PR is merged.
+**Spec:** `docs/tasks/TD-3_5_IMPLEMENTATION.md` and `docs/design/TD35_*.md`.
+
+The pilot board, main menu, and pilot clear card use `TD35Theme` (pearl canvas, navy frame, token piece colors). Pieces are one connected silhouette with a shadow, a darker edge, and a shifted gloss. Gates cut a canvas opening through the frame and draw a colored mouth on the inner edge. The exit gesture is unchanged: 0.34 cell past the last landing, or 0.12 cell inside the screen-edge zone. A drag also draws a 0.15-opacity landing preview. `PuzzleEngine`, the 100 legacy levels, and `user://progress.save` are unchanged. The legacy campaign board stays on the dark `Style` palette. The pilot clear card says "Level Complete!" and does not add stars, gold, or a best score. The legacy campaign win screen still shows its real star count.
+
+Desktop SubViewport captures are in `build/qa/td35/` (gitignored): menu at 360×800 and 412×915, pilot levels 1, 6, 10, 11, and 15 (level 15 with the clear card), plus synthetic 1×5, 5×1, 5×5, and 9×9 boards. These are not device screenshots.
+
+Godot 4.7.2, Windows, 2026-11-24, after the visual edits:
+
+| Command | Exit |
+| --- | --- |
+| `--headless --script res://test/test_v2_session.gd` | 0 |
+| `--headless --script res://test/test_v2_pilot.gd` | 0 (15 `SOLVED`) |
+| `--headless --script res://test/test_v2_foundation.gd` | 0 |
+| `--headless --script res://test/test_rules.gd` | 0 |
+| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
+| `--headless --script res://test/test_services.gd` | 0 |
+| `--headless --script res://test/test_drag.gd` | 0 |
+| `--script res://test/test_layout.gd` | 0 (`screenshots: 36  failures: 0`) |
+| `--script res://test/test_td35_shots.gd` | 0 (11 PNGs, real renderer; `--headless` cannot read the viewport texture) |
+
+`test_v2_solver.gd` and `test_v2_campaign.gd` were not rerun. The campaign search is unchanged and last exited 0 on the parent branch. Frame times were not measured.
+
+Debug APK, test signing: `build/android/BlockPuzzle-TD35-QA-debug.apk`, 59,772,779 bytes, SHA-256 `E952CD3A2AB398F75ED63785BDEB7DF6A9A9801ACC3454E497CB25CF36793540`. Command: `--headless --path . --export-debug "Android" build/android/BlockPuzzle-TD35-QA-debug.apk`. Exit 0. The APK contains `levels_v2/pilot/v2_001.json` and `levels/level_001.json`. It is not the earlier TD-3 prerelease asset. Installed with `adb install -r` on emulator `emulator-5554` (`Pixel_10_Pro_XL`, 1344×2992). The pearl menu opened, including Play and the debug-only v2 Pilot. Opening the pilot showed Level 6 with the connected green L and the saved pilot index. The exit gesture was not swiped again on this build. This is an emulator, not a physical phone.
+
+Differences from the written art direction: the board sits toward the top of the play area so a 5×1 strip is not stranded in the vertical center; gate mouths are flat vector cuts, and on a pearl page the outer punch blends into the background; gloss is a shifted polygon, not a licensed texture; buttons are themed Godot buttons, not the SVG files; no embedded font; debug builds still print the solver line because `DevAccess` is on; the clear dialog still covers the board, so the HUD Undo button is not reachable until the dialog closes.
+
 # TD-3 — Playable v2 geometry, precise gates, and 15 pilot levels
 
 **Status:** Implemented on `feat/td3-geometry-gates-pilot`. Not fully accepted. No physical Android session was run, and no human playtest has signed off.
