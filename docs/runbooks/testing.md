@@ -9,6 +9,7 @@ godot --headless --path . --script res://test/test_drag.gd
 godot --headless --path . --script res://test/test_v2_foundation.gd
 godot --headless --path . --script res://test/test_v2_solver.gd
 godot --headless --path . --script res://test/test_v2_campaign.gd
+godot --headless --path . --script res://test/profile_v2_search.gd
 godot --path . --script res://test/test_layout.gd
 ```
 Document version, command, exit code, and relevant output. No passing result may be inferred from code inspection. `test_v2_campaign.gd` replays adapted levels with a 2500 expansion cap. A CAP line is a budget limit, not an unsolvable level. That script can take several minutes.

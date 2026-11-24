@@ -12,73 +12,68 @@ const UNKNOWN_CAP_REACHED := "UNKNOWN_CAP_REACHED"
 const INVALID_LEVEL := "INVALID_LEVEL"
 const MAX_CASCADE := 32
 const DIRECTIONS := ["left", "right", "up", "down"]
-static var assume_valid := false
 
-static func transition(state: PuzzleState, action: PuzzleAction, definition: Dictionary) -> Dictionary:
+static func transition(state: PuzzleState, action: PuzzleAction, definition: Dictionary, context: PuzzleSearchContext = null) -> Dictionary:
 	if action == null or (action.kind != PuzzleAction.MOVE and action.kind != PuzzleAction.EXIT):
 		return _reject("INVALID_ACTION", "Action kind is missing or unknown.")
 	if not state.pieces.has(action.piece_id):
 		return _reject("UNKNOWN_PIECE", "Piece '%s' is not in the puzzle state." % action.piece_id)
-	var unsupported := _unsupported_reason(definition, state)
+	var unsupported := _unsupported_reason(definition)
 	if unsupported != "":
 		return _reject("UNSUPPORTED_FEATURE", unsupported)
-	if not assume_valid:
+	if context == null or not context.schema_checked:
 		var diags := LevelValidator.validate_v2(definition)
 		if not diags.is_empty():
 			return _reject("INVALID_LEVEL", "Definition failed schema validation.")
-	if not _state_matches(definition, state):
-		return _reject("STATE_MISMATCH", "Puzzle state does not match the level definition.")
+	var state_key := state.search_key()
+	if context == null or context.checked_key != state_key:
+		var problem := _state_problem(definition, state, context)
+		if problem != "":
+			return _reject("STATE_MISMATCH", "Puzzle state does not match the level definition (%s)." % problem)
 	var piece: Dictionary = state.pieces[action.piece_id]
-	if not bool(piece["active"]):
+	if typeof(piece.get("active", null)) != TYPE_BOOL or not piece["active"]:
 		return _reject("ILLEGAL_ACTION", "Piece '%s' is inactive." % action.piece_id)
-	var legal := legal_actions(definition, state, action.piece_id)
-	var matched: PuzzleAction = null
-	for candidate in legal:
-		if candidate.canonical_text() == action.canonical_text():
-			matched = candidate
-			break
+	var matched: PuzzleAction = action if context != null and context.owns(action, state_key) else null
+	if matched == null:
+		var legal := legal_actions(definition, state, action.piece_id, context)
+		for candidate in legal:
+			if candidate.canonical_text() == action.canonical_text():
+				matched = candidate
+				break
 	if matched == null:
 		return _reject("ILLEGAL_ACTION", "That landing or exit is not legal.")
-	var next := state.duplicate()
-	var events: Array = []
-	if matched.kind == PuzzleAction.MOVE:
-		next.pieces[matched.piece_id]["pos"] = matched.landing
-		events.append(PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, matched.piece_id, 0))
-	else:
-		var slide: Dictionary = _exit_slide(definition, state, matched.piece_id, matched.gate_id)
-		var origin: Vector2i = piece["pos"]
-		var alignment: Vector2i = slide["pos"]
-		next.pieces[matched.piece_id]["pos"] = alignment
-		next.pieces[matched.piece_id]["active"] = false
-		if alignment != origin:
-			events.append(PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, matched.piece_id, 0))
-		events.append(PuzzleEvent.make(PuzzleEvent.PIECE_EXITED, matched.piece_id, 1))
-	next.move_number += 1
-	return {"ok": true, "next_state": next, "events": events, "error": {}}
+	return _commit(state, matched, definition, context)
 
-static func legal_actions(definition: Dictionary, state: PuzzleState, piece_id: String = "") -> Array:
-	if _unsupported_reason(definition, state) != "":
+static func legal_actions(definition: Dictionary, state: PuzzleState, piece_id: String = "", context: PuzzleSearchContext = null) -> Array:
+	if _unsupported_reason(definition) != "":
 		return []
-	if not assume_valid and not LevelValidator.validate_v2(definition).is_empty():
+	if (context == null or not context.schema_checked) and not LevelValidator.validate_v2(definition).is_empty():
 		return []
-	if not _state_matches(definition, state):
+	if _state_problem(definition, state, context) != "":
 		return []
-	var geometry := _geometry(definition)
+	var geometry: Dictionary = context.geometry if context != null and not context.geometry.is_empty() else _geometry(definition)
 	var actions: Array = []
 	var ids: Array = geometry.keys()
 	ids.sort()
 	for id in ids:
 		if piece_id != "" and id != piece_id:
 			continue
-		if not bool(state.pieces[id]["active"]):
+		if typeof(state.pieces[id].get("active", null)) != TYPE_BOOL or not state.pieces[id]["active"]:
 			continue
-		_actions_for_piece(definition, state, geometry, id, actions)
+		_actions_for_piece(definition, state, geometry, id, actions, context)
 	actions.sort_custom(func(left, right):
 		return _action_sort_key(left, state, definition) < _action_sort_key(right, state, definition)
 	)
+	if context != null:
+		var key := state.search_key()
+		context.checked_key = key
+		for issued in actions:
+			context.trust(issued, key)
 	return actions
 
-static func is_won(definition: Dictionary, state: PuzzleState) -> bool:
+static func is_won(definition: Dictionary, state: PuzzleState, context: PuzzleSearchContext = null) -> bool:
+	if _state_problem(definition, state, context) != "":
+		return false
 	var required := 0
 	for piece in definition.get("pieces", []):
 		if typeof(piece) != TYPE_DICTIONARY:
@@ -101,11 +96,30 @@ static func search_status(solved: bool, search_complete: bool, cap_hit: bool) ->
 		return UNKNOWN_CAP_REACHED
 	return UNSOLVABLE
 
-static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geometry: Dictionary, id: String, actions: Array) -> void:
+static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dictionary, context: PuzzleSearchContext) -> Dictionary:
+	var next := state.duplicate()
+	var events: Array = []
+	var piece: Dictionary = state.pieces[matched.piece_id]
+	if matched.kind == PuzzleAction.MOVE:
+		next.pieces[matched.piece_id]["pos"] = matched.landing
+		events.append(PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, matched.piece_id, 0))
+	else:
+		var slide: Dictionary = _exit_slide(definition, state, matched.piece_id, matched.gate_id, context)
+		var origin: Vector2i = piece["pos"]
+		var alignment: Vector2i = slide["pos"]
+		next.pieces[matched.piece_id]["pos"] = alignment
+		next.pieces[matched.piece_id]["active"] = false
+		if alignment != origin:
+			events.append(PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, matched.piece_id, 0))
+		events.append(PuzzleEvent.make(PuzzleEvent.PIECE_EXITED, matched.piece_id, 1))
+	next.move_number += 1
+	return {"ok": true, "next_state": next, "events": events, "error": {}}
+
+static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geometry: Dictionary, id: String, actions: Array, context: PuzzleSearchContext) -> void:
 	var origin: Vector2i = state.pieces[id]["pos"]
 	var offsets: Array = geometry[id]["offsets"]
-	var occupied := _occupied(definition, state, id)
-	var bounds: Vector2i = _bounds(definition)
+	var occupied := _occupied(definition, state, id, geometry, context)
+	var bounds: Vector2i = context.bounds if context != null and context.bounds != Vector2i.ZERO else _bounds(definition)
 	for dir in DIRECTIONS:
 		var slide := _walk(origin, offsets, dir, occupied, bounds)
 		for landing in slide["landings"]:
@@ -120,13 +134,14 @@ static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geome
 		exit_action.landing = slide["pos"]
 		actions.append(exit_action)
 
-static func _exit_slide(definition: Dictionary, state: PuzzleState, piece_id: String, gate_id: String) -> Dictionary:
-	var geometry := _geometry(definition)
+static func _exit_slide(definition: Dictionary, state: PuzzleState, piece_id: String, gate_id: String, context: PuzzleSearchContext) -> Dictionary:
+	var geometry: Dictionary = context.geometry if context != null and not context.geometry.is_empty() else _geometry(definition)
 	var origin: Vector2i = state.pieces[piece_id]["pos"]
 	var offsets: Array = geometry[piece_id]["offsets"]
 	var gate := _gate_by_id(definition, gate_id)
 	var dir := _dir_for_side(str(gate.get("side", "")))
-	var slide := _walk(origin, offsets, dir, _occupied(definition, state, piece_id), _bounds(definition))
+	var bounds: Vector2i = context.bounds if context != null and context.bounds != Vector2i.ZERO else _bounds(definition)
+	var slide := _walk(origin, offsets, dir, _occupied(definition, state, piece_id, geometry, context), bounds)
 	return {"pos": slide["pos"], "dir": dir}
 
 static func _walk(origin: Vector2i, offsets: Array, dir: String, occupied: Dictionary, bounds: Vector2i) -> Dictionary:
@@ -198,14 +213,11 @@ static func _matching_gates(definition: Dictionary, state: PuzzleState, color: S
 	found.sort()
 	return found
 
-static func _occupied(definition: Dictionary, state: PuzzleState, exclude_id: String) -> Dictionary:
+static func _occupied(definition: Dictionary, state: PuzzleState, exclude_id: String, geometry: Dictionary, context: PuzzleSearchContext) -> Dictionary:
 	var occupied := {}
-	var board: Dictionary = definition.get("board", {})
-	for wall in board.get("walls", []):
-		var cell = _pair(wall)
-		if cell != null:
-			occupied[cell] = true
-	var geometry := _geometry(definition)
+	var walls: Dictionary = context.walls if context != null and not context.walls.is_empty() else _wall_cells(definition)
+	for cell in walls.keys():
+		occupied[cell] = true
 	for id in geometry.keys():
 		if id == exclude_id or not bool(state.pieces[id]["active"]):
 			continue
@@ -231,39 +243,129 @@ static func _geometry(definition: Dictionary) -> Dictionary:
 			"offsets": offsets,
 			"color": str(piece.get("color", "")),
 			"required": needed,
+			"reveal": str(piece.get("reveal", "visible")),
 		}
 	return geometry
 
+static func _wall_cells(definition: Dictionary) -> Dictionary:
+	var walls := {}
+	var board: Dictionary = definition.get("board", {})
+	for wall in board.get("walls", []):
+		var cell = _pair(wall)
+		if cell != null:
+			walls[cell] = true
+	return walls
+
 static func _state_matches(definition: Dictionary, state: PuzzleState) -> bool:
-	var geometry := _geometry(definition)
-	if geometry.size() != state.pieces.size():
-		return false
+	return _state_problem(definition, state, null) == ""
+
+static func _state_problem(definition: Dictionary, state: PuzzleState, context: PuzzleSearchContext) -> String:
+	if state.schema_version != 2:
+		return "schema"
+	if state.level_id != str(definition.get("id", "")):
+		return "level"
+	if state.move_number < 0:
+		return "move"
+	var geometry: Dictionary = context.geometry if context != null and not context.geometry.is_empty() else _geometry(definition)
+	if state.pieces.size() != geometry.size():
+		return "pieces"
+	var bounds: Vector2i = context.bounds if context != null and context.bounds != Vector2i.ZERO else _bounds(definition)
+	var walls: Dictionary = context.walls if context != null and not context.walls.is_empty() else _wall_cells(definition)
+	var occupied := {}
 	for id in geometry.keys():
-		if not state.pieces.has(id):
-			return false
-		if typeof(state.pieces[id].get("pos", null)) != TYPE_VECTOR2I:
-			return false
+		if not state.pieces.has(id) or typeof(state.pieces[id]) != TYPE_DICTIONARY:
+			return "piece"
+		var piece: Dictionary = state.pieces[id]
+		if typeof(piece.get("pos", null)) != TYPE_VECTOR2I:
+			return "position"
+		if typeof(piece.get("active", null)) != TYPE_BOOL or typeof(piece.get("revealed", null)) != TYPE_BOOL:
+			return "piece-flags"
+		var expected_revealed := str(geometry[id]["reveal"]) != "hidden"
+		if bool(piece["revealed"]) != expected_revealed:
+			return "reveal"
+		var origin: Vector2i = piece["pos"]
+		for offset in geometry[id]["offsets"]:
+			var cell: Vector2i = origin + offset
+			if cell.x < 0 or cell.y < 0 or cell.x >= bounds.x or cell.y >= bounds.y:
+				return "bounds"
+			if walls.has(cell):
+				return "wall"
+			if bool(piece["active"]):
+				if occupied.has(cell):
+					return "overlap"
+				occupied[cell] = true
+	var expected_gates := _expected_gates(definition)
+	if state.gates.size() != expected_gates.size():
+		return "gates"
+	for gate_id in expected_gates.keys():
+		if not state.gates.has(gate_id) or typeof(state.gates[gate_id]) != TYPE_DICTIONARY:
+			return "gate"
+		var gate_state: Dictionary = state.gates[gate_id]
+		if str(gate_state.get("mode", "")) != str(expected_gates[gate_id]["mode"]):
+			return "gate-mode"
+		if typeof(gate_state.get("counter_remaining", null)) != TYPE_INT:
+			return "gate-counter"
+		if int(gate_state["counter_remaining"]) != int(expected_gates[gate_id]["counter_remaining"]):
+			return "gate-counter"
+	var expected_blockers := _expected_blockers(definition)
+	if state.blockers.size() != expected_blockers.size():
+		return "blockers"
+	for blocker_id in expected_blockers.keys():
+		if not state.blockers.has(blocker_id) or typeof(state.blockers[blocker_id]) != TYPE_DICTIONARY:
+			return "blocker"
+		var blocker_state: Dictionary = state.blockers[blocker_id]
+		if typeof(blocker_state.get("active", null)) != TYPE_BOOL or typeof(blocker_state.get("counter_remaining", null)) != TYPE_INT:
+			return "blocker"
+		if not bool(blocker_state["active"]) or int(blocker_state["counter_remaining"]) != int(expected_blockers[blocker_id]):
+			return "blocker"
+	var expected_triggers := _expected_triggers(definition)
+	if state.trigger_fired.size() != expected_triggers.size():
+		return "triggers"
+	for trigger_id in expected_triggers.keys():
+		if not state.trigger_fired.has(trigger_id) or typeof(state.trigger_fired[trigger_id]) != TYPE_BOOL:
+			return "trigger"
+	if not state.event_counters.is_empty():
+		return "counters"
+	return ""
+
+static func _expected_gates(definition: Dictionary) -> Dictionary:
+	var expected := {}
 	for gate in definition.get("gates", []):
-		if typeof(gate) != TYPE_DICTIONARY or not state.gates.has(str(gate.get("id", ""))):
-			return false
-	return true
+		if typeof(gate) != TYPE_DICTIONARY:
+			continue
+		var remaining := -1
+		if gate.get("counter", null) is Dictionary:
+			var rem: Variant = LevelValidator.as_whole_int(gate["counter"].get("remaining", null))
+			if rem != null and int(rem) >= 0:
+				remaining = int(rem)
+		expected[str(gate.get("id", ""))] = {
+			"mode": "LOCKED" if str(gate.get("initial_state", "open")) == "locked" else "OPEN",
+			"counter_remaining": remaining,
+		}
+	return expected
 
-static func _state_has_advanced(state: PuzzleState) -> bool:
-	for id in state.pieces.keys():
-		if not bool(state.pieces[id]["revealed"]):
-			return true
-	for id in state.gates.keys():
-		var gate: Dictionary = state.gates[id]
-		if str(gate.get("mode", "OPEN")) != "OPEN":
-			return true
-		if int(gate.get("counter_remaining", -1)) >= 0:
-			return true
-	if not state.blockers.is_empty() or not state.event_counters.is_empty():
-		return true
-	return false
+static func _expected_blockers(definition: Dictionary) -> Dictionary:
+	var expected := {}
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var remaining := -1
+		if blocker.has("counter_remaining"):
+			var rem: Variant = LevelValidator.as_whole_int(blocker["counter_remaining"])
+			if rem != null and int(rem) >= 0:
+				remaining = int(rem)
+		expected[str(blocker.get("id", ""))] = remaining
+	return expected
 
-static func _unsupported_reason(definition: Dictionary, state: PuzzleState) -> String:
-	if _uses_unimplemented_mechanics(definition) or _state_has_advanced(state):
+static func _expected_triggers(definition: Dictionary) -> Dictionary:
+	var expected := {}
+	for trigger in definition.get("triggers", []):
+		if typeof(trigger) == TYPE_DICTIONARY:
+			expected[str(trigger.get("id", ""))] = true
+	return expected
+
+static func _unsupported_reason(definition: Dictionary) -> String:
+	if _uses_unimplemented_mechanics(definition):
 		return "Triggers, locked gates, counters, blockers, or hidden pieces are parsed only. Runtime execution is not available."
 	return ""
 

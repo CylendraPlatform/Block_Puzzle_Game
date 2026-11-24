@@ -26,13 +26,17 @@ Triggers, blockers, hidden pieces, locked gates, counters, rotation, and a non-n
 
 Every piece whose `required` flag is not explicitly false must be present and inactive. Legacy pieces are required. An optional piece may stay active. An empty required set is a vacuous win. Active flags are not ignored.
 
+A win is accepted only when the state also matches the definition. The level id and schema must match. Piece, gate, blocker, and trigger entries must be exactly the definition's ids. Positions are grid vectors. Every footprint cell stays inside the board and off walls. Active pieces do not overlap each other. Gate mode and counter match the definition. `move_number` is not negative. An extra piece, gate, blocker, or event counter is a mismatch. A cleared board that fails any of those checks is `INVALID_LEVEL`, not `SOLVED`.
+
+`PuzzleSearchContext` belongs to one `solve` call. After that call validates the schema, `legal_actions` and `transition` skip a second schema pass only while the context is passed in. Witness replay does not receive it. There is no process-wide flag, so a later call that omits the context validates the definition again.
+
 ## Search
 
 `SolverV2.solve(definition, initial_state, max_states)` is breadth-first on committed moves. It calls `PuzzleEngine.legal_actions` and `PuzzleEngine.transition`. `max_states` counts expanded states (pops). An already-won start returns `SOLVED` with an empty witness and zero expansions, including when `max_states` is 0. Otherwise the search stops with `UNKNOWN_CAP_REACHED` before a pop that would pass the budget. A win found on a child is accepted without expanding that child. `UNSOLVABLE` is returned only when the queue empties inside the budget. The witness is replayed through `transition` before `SOLVED` is returned. Replay failure becomes `INVALID_LEVEL`.
 
 The seen set uses `PuzzleState.search_key()`, which is the canonical snapshot without the `move=` line. `canonical_hash()` still includes `move_number`. Gate mode, counters, blockers, reveal flags, and event counters stay in the key. TD-2 does not change those fields during a simple move.
 
-`PuzzleEngine.assume_valid` is an internal speed flag. `solve` sets it only around the search, after one schema check, and clears it before witness replay. Public callers leave it false.
+Search keeps an index into the queue instead of removing the front element, and it rebuilds the witness from parent links. Geometry and walls are cached on the search context. An action is applied again without listing moves only when it is the same instance, for the same state key, and its canonical text is unchanged. Those steps do not add or remove legal moves.
 
 ## What this does not prove
 

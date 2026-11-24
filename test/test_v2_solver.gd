@@ -17,6 +17,7 @@ func _initialize() -> void:
 	_movement()
 	_rejections()
 	_search()
+	_integrity()
 	_legacy_sample()
 	print("== done: %d failure(s) ==" % _fails)
 	quit(_fails)
@@ -147,6 +148,77 @@ func _search() -> void:
 	_ok(already["status"] == PuzzleEngine.SOLVED and int(already["solution_length"]) == 0, "an already-won state needs no search")
 	var invalid: Dictionary = SolverV2.solve({"schema_version": 2, "id": "x"}, PuzzleState.new(), 10)
 	_ok(invalid["status"] == PuzzleEngine.INVALID_LEVEL and invalid["witness"].is_empty(), "an invalid definition is not solved")
+
+func _integrity() -> void:
+	var level := _level(3, 2, [[0, 0]], [
+		_piece("a", "red", [[0, 0]], [1, 0], true),
+		_piece("b", "blue", [[0, 0]], [2, 1], true),
+	], [_gate("out", "right", 0, 1, "red")])
+	var cleared := PuzzleState.from_definition(level)
+	cleared.pieces["a"]["active"] = false
+	cleared.pieces["b"]["active"] = false
+	var good: Dictionary = SolverV2.solve(level, cleared, 0)
+	_ok(good["status"] == PuzzleEngine.SOLVED and int(good["solution_length"]) == 0, "a consistent cleared board is solved without search")
+	var wrong_level := cleared.duplicate()
+	wrong_level.level_id = "forged"
+	_expect_rejected(level, wrong_level, "a forged level id is not a solved puzzle")
+	var on_wall := cleared.duplicate()
+	on_wall.pieces["a"]["pos"] = Vector2i(0, 0)
+	_expect_rejected(level, on_wall, "an inactive piece on a wall is not a solved puzzle")
+	var outside := PuzzleState.from_definition(level)
+	outside.pieces["a"]["pos"] = Vector2i(-1, 0)
+	_expect_rejected(level, outside, "an out-of-bounds piece is not searchable")
+	var overlap := PuzzleState.from_definition(level)
+	overlap.pieces["b"]["pos"] = Vector2i(1, 0)
+	var overlap_before := overlap.canonical_text()
+	var overlap_move: Dictionary = PuzzleEngine.transition(overlap, PuzzleAction.move("a", "right", Vector2i(2, 0)), level)
+	_ok(overlap_move["error"]["code"] == "STATE_MISMATCH" and overlap_move["events"].is_empty() and overlap_move["next_state"] == null, "overlapping pieces are rejected")
+	_ok(overlap.canonical_text() == overlap_before, "an overlap rejection does not mutate the input")
+	var extra := cleared.duplicate()
+	extra.pieces["ghost"] = {"pos": Vector2i(1, 1), "active": false, "revealed": true}
+	_expect_rejected(level, extra, "an unexpected piece entry is not a solved puzzle")
+	var missing_gate := cleared.duplicate()
+	missing_gate.gates.erase("out")
+	_expect_rejected(level, missing_gate, "a missing gate entry is not a solved puzzle")
+	var extra_gate := cleared.duplicate()
+	extra_gate.gates["extra"] = {"mode": "OPEN", "counter_remaining": -1}
+	_expect_rejected(level, extra_gate, "an unexpected gate entry is not a solved puzzle")
+	var shut := cleared.duplicate()
+	shut.gates["out"]["mode"] = "SHUT"
+	_expect_rejected(level, shut, "a gate mode that disagrees with the definition is not a solved puzzle")
+	var counted := cleared.duplicate()
+	counted.gates["out"]["counter_remaining"] = 2
+	_expect_rejected(level, counted, "an unexpected gate counter is not a solved puzzle")
+	var blocker := cleared.duplicate()
+	blocker.blockers["stone"] = {"active": true, "counter_remaining": -1}
+	_expect_rejected(level, blocker, "an unexpected blocker entry is not a solved puzzle")
+	var counter := cleared.duplicate()
+	counter.event_counters["mystery"] = 1
+	_expect_rejected(level, counter, "an unexpected event counter is not a solved puzzle")
+	var negative := cleared.duplicate()
+	negative.move_number = -1
+	_expect_rejected(level, negative, "a negative move count is not a solved puzzle")
+	var old_schema := cleared.duplicate()
+	old_schema.schema_version = 1
+	_expect_rejected(level, old_schema, "the wrong state schema is not a solved puzzle")
+	var bad_pos := PuzzleState.from_definition(level)
+	bad_pos.pieces["a"]["pos"] = "1,0"
+	var bad_active: bool = bad_pos.pieces["a"]["active"]
+	var bad_result: Dictionary = SolverV2.solve(level, bad_pos, 0)
+	_ok(bad_result["status"] == PuzzleEngine.INVALID_LEVEL and LevelValidator.has_code(bad_result["diagnostics"], "STATE_MISMATCH"), "a non-vector position is not a solved puzzle")
+	_ok(bad_pos.pieces["a"]["active"] == bad_active and bad_pos.move_number == 0, "a position rejection does not mutate the input")
+	var stop := _stop_short()
+	SolverV2.solve(stop, PuzzleState.from_definition(stop), 20)
+	var dirty := stop.duplicate()
+	dirty["notes"] = "forged"
+	var leaked: Dictionary = PuzzleEngine.transition(PuzzleState.from_definition(stop), PuzzleAction.move("red", "right", Vector2i(1, 0)), dirty)
+	_ok(leaked["ok"] == false and leaked["error"]["code"] == "INVALID_LEVEL", "a search does not leave schema validation disabled")
+
+func _expect_rejected(definition: Dictionary, state: PuzzleState, label: String) -> void:
+	var before := state.canonical_text()
+	var result: Dictionary = SolverV2.solve(definition, state, 0)
+	_ok(result["status"] == PuzzleEngine.INVALID_LEVEL and result["status"] != PuzzleEngine.SOLVED and LevelValidator.has_code(result["diagnostics"], "STATE_MISMATCH") and result["witness"].is_empty(), label)
+	_ok(state.canonical_text() == before, label + " does not mutate the input")
 
 func _legacy_sample() -> void:
 	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://levels/level_001.json"))

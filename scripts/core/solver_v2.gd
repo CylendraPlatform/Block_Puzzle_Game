@@ -10,49 +10,72 @@ extends RefCounted
 ## queue empties inside the budget. Search keys ignore move_number.
 
 static func solve(definition: Dictionary, initial_state: PuzzleState, max_states: int = 200000) -> Dictionary:
-	PuzzleEngine.assume_valid = false
 	var diags := LevelValidator.validate_v2(definition)
 	if not diags.is_empty():
 		return _result(PuzzleEngine.INVALID_LEVEL, 0, -1, [], diags)
-	if PuzzleEngine._unsupported_reason(definition, initial_state) != "":
+	if PuzzleEngine._unsupported_reason(definition) != "":
 		return _result(PuzzleEngine.INVALID_LEVEL, 0, -1, [], [LevelValidator._diag("UNSUPPORTED_FEATURE", "definition", "Advanced mechanics are not solvable in TD-2.")])
-	if not PuzzleEngine._state_matches(definition, initial_state):
-		return _result(PuzzleEngine.INVALID_LEVEL, 0, -1, [], [LevelValidator._diag("STATE_MISMATCH", "state", "Puzzle state does not match the level definition.")])
+	var problem := PuzzleEngine._state_problem(definition, initial_state, null)
+	if problem != "":
+		return _result(PuzzleEngine.INVALID_LEVEL, 0, -1, [], [LevelValidator._diag("STATE_MISMATCH", "state", "Puzzle state does not match the level definition (%s)." % problem)])
 	if PuzzleEngine.is_won(definition, initial_state):
 		return _checked(definition, initial_state, 0, [])
-	PuzzleEngine.assume_valid = true
-	var searched := _search(definition, initial_state, max_states)
-	PuzzleEngine.assume_valid = false
+	var context := PuzzleSearchContext.new()
+	context.schema_checked = true
+	context.geometry = PuzzleEngine._geometry(definition)
+	context.walls = PuzzleEngine._wall_cells(definition)
+	context.bounds = PuzzleEngine._bounds(definition)
+	var searched := _search(definition, initial_state, max_states, context)
 	if str(searched["status"]) != PuzzleEngine.SOLVED:
 		return searched
 	return _checked(definition, initial_state, int(searched["explored_states"]), searched["witness"])
 
-static func _search(definition: Dictionary, initial_state: PuzzleState, max_states: int) -> Dictionary:
-	var queue: Array = [[initial_state, []]]
+static func _search(definition: Dictionary, initial_state: PuzzleState, max_states: int, context: PuzzleSearchContext) -> Dictionary:
+	var queue: Array = [initial_state]
+	var head := 0
 	var seen := {initial_state.search_key(): true}
+	var parent := {}
 	var explored := 0
-	while not queue.is_empty():
+	while head < queue.size():
 		if explored >= max_states:
 			return _result(PuzzleEngine.UNKNOWN_CAP_REACHED, explored, -1, [], [])
 		explored += 1
-		var item: Array = queue.pop_front()
-		var current: PuzzleState = item[0]
-		var path: Array = item[1]
-		for action in PuzzleEngine.legal_actions(definition, current):
-			var applied: Dictionary = PuzzleEngine.transition(current, action, definition)
+		var current: PuzzleState = queue[head]
+		head += 1
+		var current_key := current.search_key()
+		for action in PuzzleEngine.legal_actions(definition, current, "", context):
+			var applied: Dictionary = PuzzleEngine.transition(current, action, definition, context)
 			if not bool(applied["ok"]):
 				continue
 			var next: PuzzleState = applied["next_state"]
-			var witness: Array = path.duplicate()
-			witness.append(action)
-			if PuzzleEngine.is_won(definition, next):
-				return _result(PuzzleEngine.SOLVED, explored, witness.size(), witness, [])
+			if PuzzleEngine.is_won(definition, next, context):
+				return _result(PuzzleEngine.SOLVED, explored, _depth(parent, current_key) + 1, _witness(parent, current_key, action), [])
 			var key := next.search_key()
 			if seen.has(key):
 				continue
 			seen[key] = true
-			queue.append([next, witness])
+			parent[key] = [current_key, action]
+			queue.append(next)
 	return _result(PuzzleEngine.UNSOLVABLE, explored, -1, [], [])
+
+static func _witness(parent: Dictionary, current_key: String, last_action: PuzzleAction) -> Array:
+	var chain: Array = []
+	var key := current_key
+	while parent.has(key):
+		var link: Array = parent[key]
+		chain.append(link[1])
+		key = str(link[0])
+	chain.reverse()
+	chain.append(last_action)
+	return chain
+
+static func _depth(parent: Dictionary, current_key: String) -> int:
+	var depth := 0
+	var key := current_key
+	while parent.has(key):
+		depth += 1
+		key = str(parent[key][0])
+	return depth
 
 static func _checked(definition: Dictionary, initial_state: PuzzleState, explored: int, witness: Array) -> Dictionary:
 	var cursor := initial_state

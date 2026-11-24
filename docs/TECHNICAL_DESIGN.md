@@ -15,7 +15,7 @@ scripts/
     settings.gd   [autoload Settings] preferences + transient nav state
     level_loader.gd, level_validator.gd, v1_adapter.gd
                   v2 schema validation and non-destructive v1 adapter
-    puzzle_state.gd, puzzle_action.gd, puzzle_event.gd, puzzle_engine.gd, solver_v2.gd
+    puzzle_state.gd, puzzle_action.gd, puzzle_event.gd, puzzle_engine.gd, puzzle_search_context.gd, solver_v2.gd
                   canonical state, legal landings, open-gate exits, and shortest-move search
     See docs/decisions/ADR-002-deterministic-puzzle-state.md, docs/v2/SCHEMA_V2.md, and docs/v2/SOLVER_V2.md.
     Live play still calls rules.gd. The v2 engine is not wired into BoardView.

@@ -28,6 +28,27 @@ The 40 cap results are levels 036, 044, 045, 050, 057, 061, 062, 064, 065, 067�
 
 Headless Godot printed ObjectDB leak warnings and `1 resources still in use` on the solver and campaign scripts. Those warnings are not assertion failures. No Android device session was run. Desktop renders are not device QA.
 
+## Hardening pass
+State checks now require the level id, schema, piece and gate sets, blocker and trigger sets, in-bounds footprints, walls, active-piece occupancy, gate mode, and gate counter to agree with the definition. A cleared board that fails those checks is `INVALID_LEVEL` with `STATE_MISMATCH`, not `SOLVED`. Rejected actions leave the input state unchanged.
+
+`PuzzleEngine.assume_valid` is gone. One `PuzzleSearchContext` is passed through a single search. Replay and later public calls validate the schema again.
+
+The same five levels were timed before and after, cap 2500, Godot 4.7.2. Explored counts and statuses did not change. Expansions per second rose from 114–211 to 324–494 (about 2.2× to 2.8×). On level 32, 200 public `legal_actions` calls took 191 ms, 200 public `transition` calls took 110 ms, 200 search keys took 4 ms, and 40 schema validations took 6 ms. Enumeration is the dominant cost. Schema validation is not, once a search holds a context. The queue no longer deletes its front element, witnesses are rebuilt from parent links, and geometry is cached. Move rules are unchanged.
+
+`UNKNOWN_CAP_REACHED` remains separate from `UNSOLVABLE`. The 40 campaign levels that stopped at 2500 expansions are still not claimed solved. That full campaign was not repeated after this pass. `test_layout.gd` was not repeated; presentation code did not change.
+
+Hardening rerun, same Godot binary, 2026-11-24:
+
+| Command | Exit |
+| --- | --- |
+| `--headless --script res://test/test_v2_solver.gd` | 0 |
+| `--headless --script res://test/test_v2_foundation.gd` | 0 |
+| `--headless --script res://test/test_rules.gd` | 0 |
+| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
+| `--headless --script res://test/test_services.gd` | 0 |
+| `--headless --script res://test/test_drag.gd` | 0 |
+| `--headless --script res://test/profile_v2_search.gd` | 0 |
+
 ## Not in this task
 TD-3 art, editor, and content. TD-4 trigger and event execution. BoardView migration. New levels. Ads, IAP, remote analytics.
 
