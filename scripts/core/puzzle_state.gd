@@ -92,10 +92,19 @@ func duplicate() -> PuzzleState:
 	return copy
 
 func canonical_text() -> String:
+	return "\n".join(_lines(true))
+
+## Same gameplay facts as the snapshot hash, without the cumulative move count.
+## BFS uses this so a reversible board cannot be searched forever.
+func search_key() -> String:
+	return "\n".join(_lines(false))
+
+func _lines(include_move: bool) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	lines.append("schema=%d" % schema_version)
 	lines.append("level=%s" % level_id)
-	lines.append("move=%d" % move_number)
+	if include_move:
+		lines.append("move=%d" % move_number)
 	for id in _sorted(pieces):
 		var piece: Dictionary = pieces[id]
 		var pos: Vector2i = piece["pos"]
@@ -112,7 +121,7 @@ func canonical_text() -> String:
 		lines.append("counter %s %d" % [id, int(event_counters[id])])
 	for id in _sorted(trigger_fired):
 		lines.append("trigger %s %d" % [id, int(bool(trigger_fired[id]))])
-	return "\n".join(lines)
+	return lines
 
 func canonical_hash() -> String:
 	var ctx := HashingContext.new()
