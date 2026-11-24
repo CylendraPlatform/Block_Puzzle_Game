@@ -10,18 +10,12 @@ signal won
 signal grabbed
 signal bumped
 
-const COLORS := {
-	"red": Color("#ff5d73"),
-	"blue": Color("#5b8cff"),
-	"green": Color("#3dd6a8"),
-	"yellow": Color("#ffc857"),
-	"orange": Color("#ff9f45"),
-	"purple": Color("#b980ff"),
-}
-const BG := Color("#242838")
-const GRID_LINE := Color("#2f3449")
-const WALL := Color("#11131c")
-const EASE_SPEED := 18.0
+const COLORS := Style.BLOCK
+const BG := Style.BOARD
+const GRID_LINE := Color("#3a4166")
+const WALL := Style.WALL
+const EASE_SPEED := Style.EASE_SPEED
+var _t := 0.0   ## time accumulator for idle gate pulse
 
 var level: Level
 var blocks: Array[Dictionary] = []
@@ -78,10 +72,27 @@ func _clear_selection() -> void:
 func _recompute_layout() -> void:
 	if level == null:
 		return
-	_cell = minf(size.x / (level.cols + 1.0), size.y / (level.rows + 1.0))
+	# Fill the available area tightly (small margin for gate bars), fewer dead pixels.
+	_cell = minf(size.x / (level.cols + 0.7), size.y / (level.rows + 0.7))
 	var bw := _cell * level.cols
 	var bh := _cell * level.rows
 	_origin = Vector2((size.x - bw) * 0.5, (size.y - bh) * 0.5)
+
+## Draw a rounded rect (optionally bordered / shadowed) via a StyleBoxFlat.
+func _rounded(rect: Rect2, color: Color, radius: float, border_col := Color(0, 0, 0, 0), border_w := 0.0, shadow := 0.0, shadow_a := 0.5) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.set_corner_radius_all(int(radius))
+	if border_w > 0.0:
+		sb.set_border_width_all(int(border_w))
+		sb.border_color = border_col
+	if shadow > 0.0:
+		var sc := Style.SHADOW
+		sc.a = shadow_a
+		sb.shadow_color = sc
+		sb.shadow_size = int(shadow)
+		sb.shadow_offset = Vector2(0, shadow * 0.5)
+	draw_style_box(sb, rect)
 
 func _cell_from_px(px: Vector2) -> Vector2i:
 	var local := (px - _origin) / _cell
@@ -109,6 +120,7 @@ func _get_block(id: String) -> Dictionary:
 func _process(delta: float) -> void:
 	if level == null:
 		return
+	_t += delta
 	_recompute_layout()
 	var moving := false
 	for b in blocks:
@@ -123,8 +135,8 @@ func _process(delta: float) -> void:
 				moving = true
 			else:
 				_visual[id] = target
-	if moving or not _exiting.is_empty():
-		queue_redraw()
+	# Always redraw so gates pulse gently; cheap for a small board.
+	queue_redraw()
 
 # ---------------------------------------------------------------------------
 # Drawing
@@ -135,15 +147,16 @@ func _draw() -> void:
 	_recompute_layout()
 	var bw := _cell * level.cols
 	var bh := _cell * level.rows
-	draw_rect(Rect2(_origin, Vector2(bw, bh)), BG, true)
-	for x in range(level.cols + 1):
-		var gx := _origin.x + x * _cell
-		draw_line(Vector2(gx, _origin.y), Vector2(gx, _origin.y + bh), GRID_LINE, 1.0)
-	for y in range(level.rows + 1):
-		var gy := _origin.y + y * _cell
-		draw_line(Vector2(_origin.x, gy), Vector2(_origin.x + bw, gy), GRID_LINE, 1.0)
+	# Board tray: rounded panel with soft drop shadow + subtle inset cells.
+	var tray := Rect2(_origin - Vector2(_cell * 0.12, _cell * 0.12), Vector2(bw + _cell * 0.24, bh + _cell * 0.24))
+	_rounded(tray, BG, _cell * 0.22, Color(0, 0, 0, 0), 0.0, _cell * 0.18, 0.55)
+	for y in range(level.rows):
+		for x in range(level.cols):
+			var cr := Rect2(_px_from_cell(Vector2i(x, y)) + Vector2(_cell, _cell) * 0.06, Vector2(_cell, _cell) * 0.88)
+			_rounded(cr, Style.CELL, _cell * 0.14)
 	for w in level.walls:
-		draw_rect(Rect2(_px_from_cell(w), Vector2(_cell, _cell)), WALL, true)
+		var wr := Rect2(_px_from_cell(w) + Vector2(_cell, _cell) * 0.04, Vector2(_cell, _cell) * 0.92)
+		_rounded(wr, WALL, _cell * 0.16, Color(0, 0, 0, 0.35), 2.0)
 	for g in level.gates:
 		_draw_gate(g)
 	for b in blocks:
@@ -151,21 +164,36 @@ func _draw() -> void:
 
 func _draw_gate(g: Dictionary) -> void:
 	var col: Color = COLORS.get(g["color"], Color.WHITE)
-	var thick := _cell * 0.28
+	var thick := _cell * 0.30
+	var gap := _cell * 0.10
 	var lo: int = g["lo"]
 	var hi: int = g["hi"]
 	var side: String = g["side"]
+	var span := (hi - lo + 1) * _cell
 	var r: Rect2
 	match side:
 		"left":
-			r = Rect2(_origin.x - thick, _origin.y + lo * _cell, thick, (hi - lo + 1) * _cell)
+			r = Rect2(_origin.x - thick - gap, _origin.y + lo * _cell + gap, thick, span - gap * 2.0)
 		"right":
-			r = Rect2(_origin.x + level.cols * _cell, _origin.y + lo * _cell, thick, (hi - lo + 1) * _cell)
+			r = Rect2(_origin.x + level.cols * _cell + gap, _origin.y + lo * _cell + gap, thick, span - gap * 2.0)
 		"top":
-			r = Rect2(_origin.x + lo * _cell, _origin.y - thick, (hi - lo + 1) * _cell, thick)
+			r = Rect2(_origin.x + lo * _cell + gap, _origin.y - thick - gap, span - gap * 2.0, thick)
 		"bottom":
-			r = Rect2(_origin.x + lo * _cell, _origin.y + level.rows * _cell, (hi - lo + 1) * _cell, thick)
-	draw_rect(r, col, true)
+			r = Rect2(_origin.x + lo * _cell + gap, _origin.y + level.rows * _cell + gap, span - gap * 2.0, thick)
+	# Idle glow pulse.
+	var pulse := 0.55 + 0.45 * (sin(_t * TAU / Style.GATE_PULSE) * 0.5 + 0.5)
+	var glow := col
+	glow.a = 0.0
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(int(thick * 0.5))
+	sb.border_color = col.lightened(0.35)
+	sb.set_border_width_all(2)
+	var gc := col
+	gc.a = 0.6 * pulse
+	sb.shadow_color = gc
+	sb.shadow_size = int(_cell * 0.22 * pulse)
+	draw_style_box(sb, r)
 
 func _draw_block(b: Dictionary) -> void:
 	var id: String = b["id"]
@@ -176,14 +204,21 @@ func _draw_block(b: Dictionary) -> void:
 	if _exiting.has(id):
 		scale = _exiting[id]
 	var base: Vector2 = _visual.get(id, _px_from_cell(b["pos"]))
-	var pad := _cell * 0.08
+	var pad := _cell * Style.CELL_PAD
+	var radius := _cell * 0.20
+	var selected := id == _sel_id
 	for c in b["cells"]:
 		var cell_tl := base + Vector2(c.x, c.y) * _cell
 		var centre := cell_tl + Vector2(_cell, _cell) * 0.5
 		var s := Vector2(_cell - pad * 2.0, _cell - pad * 2.0) * scale
 		var rect := Rect2(centre - s * 0.5, s)
-		draw_rect(rect, col, true)
-		draw_rect(rect, col.darkened(0.25), false, 2.0)
+		# contact shadow + rounded body + dark bevel border
+		var shadow := _cell * (0.14 if selected else 0.10)
+		_rounded(rect, col, radius, col.darkened(0.32), 2.0, shadow, 0.5)
+		# top highlight (directional light) — a lighter rounded band in the upper area
+		var hl := col.lightened(0.30 if selected else 0.22)
+		var hrect := Rect2(rect.position + Vector2(s.x * 0.12, s.y * 0.10), Vector2(s.x * 0.76, s.y * 0.40))
+		_rounded(hrect, hl, radius * 0.7)
 
 # ---------------------------------------------------------------------------
 # Input
