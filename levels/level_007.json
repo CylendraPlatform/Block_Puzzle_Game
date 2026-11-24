@@ -5,36 +5,68 @@
         [
           0.0,
           0.0
-        ],
+        ]
+      ],
+      "color": "red",
+      "id": "b1",
+      "pos": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cells": [
         [
           0.0,
-          1.0
-        ],
-        [
-          1.0,
-          1.0
+          0.0
         ]
       ],
       "color": "blue",
-      "id": "b1",
+      "id": "b2",
       "pos": [
         2.0,
-        0.0
+        3.0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "color": "green",
+      "id": "b3",
+      "pos": [
+        4.0,
+        3.0
       ]
     }
   ],
-  "cols": 5.0,
+  "cols": 6.0,
   "gates": [
     {
+      "color": "red",
+      "hi": 5.0,
+      "lo": 0.0,
+      "side": "right"
+    },
+    {
       "color": "blue",
-      "hi": 4.0,
+      "hi": 5.0,
+      "lo": 0.0,
+      "side": "right"
+    },
+    {
+      "color": "green",
+      "hi": 5.0,
       "lo": 0.0,
       "side": "top"
     }
   ],
   "id": 7.0,
-  "name": "Level 7",
-  "par": 1,
-  "rows": 5.0,
+  "name": "Single File",
+  "par": 3,
+  "rows": 6.0,
   "walls": []
 }

@@ -5,21 +5,41 @@
         [
           0.0,
           0.0
-        ],
-        [
-          0.0,
-          1.0
-        ],
-        [
-          1.0,
-          1.0
         ]
       ],
       "color": "red",
       "id": "b1",
       "pos": [
-        3.0,
-        0.0
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "color": "blue",
+      "id": "b2",
+      "pos": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "cells": [
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "color": "green",
+      "id": "b3",
+      "pos": [
+        4.0,
+        2.0
       ]
     }
   ],
@@ -29,12 +49,24 @@
       "color": "red",
       "hi": 4.0,
       "lo": 0.0,
-      "side": "bottom"
+      "side": "right"
+    },
+    {
+      "color": "blue",
+      "hi": 4.0,
+      "lo": 0.0,
+      "side": "right"
+    },
+    {
+      "color": "green",
+      "hi": 4.0,
+      "lo": 0.0,
+      "side": "top"
     }
   ],
   "id": 6.0,
-  "name": "Level 6",
-  "par": 1,
+  "name": "Make Way",
+  "par": 3,
   "rows": 5.0,
   "walls": []
 }
