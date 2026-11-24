@@ -52,6 +52,116 @@ func _schema_cases() -> void:
 		PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, "a", 0),
 	])
 	_ok(envelopes[0].subject_id == "a" and envelopes[1].type == PuzzleEvent.PIECE_EXITED, "event envelopes sort by priority then subject")
+	_strict_rejections(minimal)
+
+func _strict_rejections(minimal: Dictionary) -> void:
+	var defaults: Dictionary = minimal.duplicate(true)
+	defaults["pieces"][0].erase("reveal")
+	defaults["pieces"][0].erase("required")
+	defaults["board"].erase("walls")
+	defaults.erase("rules")
+	defaults.erase("goals")
+	defaults.erase("triggers")
+	_ok(LevelValidator.validate_v2(defaults).is_empty(), "omitted optional fields keep documented defaults")
+	var fractional: Dictionary = minimal.duplicate(true)
+	fractional["pieces"][0]["pos"] = [1.5, 1]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(fractional), "INVALID_COORDINATE"), "fractional coordinates are rejected")
+	_ok(not PuzzleState.from_definition(fractional).pieces.has("r1"), "fractional coordinates are not truncated into state")
+	var negative_fraction: Dictionary = minimal.duplicate(true)
+	negative_fraction["pieces"][0]["pos"] = [-0.2, 1]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(negative_fraction), "INVALID_COORDINATE"), "negative fractional coordinates are rejected")
+	var text_coord: Dictionary = minimal.duplicate(true)
+	text_coord["pieces"][0]["pos"] = ["1", 1]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(text_coord), "INVALID_COORDINATE"), "string coordinates are not coerced")
+	var bool_coord: Dictionary = minimal.duplicate(true)
+	bool_coord["pieces"][0]["cells"] = [[true, 0]]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(bool_coord), "INVALID_COORDINATE"), "boolean coordinates are not coerced")
+	var wide_pos: Dictionary = minimal.duplicate(true)
+	wide_pos["pieces"][0]["pos"] = [1, 1, 0]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(wide_pos), "INVALID_COORDINATE"), "position arrays must have length 2")
+	var short_cell: Dictionary = minimal.duplicate(true)
+	short_cell["pieces"][0]["cells"] = [[0]]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(short_cell), "INVALID_COORDINATE"), "cell arrays must have length 2")
+	var fractional_board: Dictionary = minimal.duplicate(true)
+	fractional_board["board"]["cols"] = 4.5
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(fractional_board), "INVALID_COORDINATE"), "fractional board size is rejected")
+	var quoted_version: Dictionary = minimal.duplicate(true)
+	quoted_version["schema_version"] = "2"
+	var quoted_load: Dictionary = LevelLoader.load_definition(quoted_version)
+	_ok(quoted_load["source"] == "rejected" and LevelValidator.has_code(quoted_load["diagnostics"], "UNSUPPORTED_VERSION"), "string schema_version is not coerced")
+	var fractional_version: Dictionary = minimal.duplicate(true)
+	fractional_version["schema_version"] = 2.5
+	_ok(LevelLoader.load_definition(fractional_version)["source"] == "rejected", "fractional schema_version is not coerced")
+	var visibility: Dictionary = minimal.duplicate(true)
+	visibility["pieces"][0].erase("reveal")
+	visibility["pieces"][0]["visibility"] = "hidden"
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(visibility), "UNSUPPORTED_MECHANIC"), "visibility is not accepted in place of reveal")
+	var gate_typo: Dictionary = minimal.duplicate(true)
+	gate_typo["gates"][0]["colour"] = "red"
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(gate_typo), "UNSUPPORTED_MECHANIC"), "unknown gate fields are rejected")
+	var numeric_id: Dictionary = minimal.duplicate(true)
+	numeric_id["pieces"][0]["id"] = 1
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(numeric_id), "INVALID_TYPE"), "numeric piece ids are rejected")
+	var rotation_text: Dictionary = minimal.duplicate(true)
+	rotation_text["rules"]["rotation"] = "false"
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(rotation_text), "INVALID_TYPE"), "string rotation is not coerced to a boolean")
+	var required_text: Dictionary = minimal.duplicate(true)
+	required_text["pieces"][0]["required"] = "yes"
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(required_text), "INVALID_TYPE"), "string required flag is rejected")
+	var missing_piece: Dictionary = minimal.duplicate(true)
+	missing_piece["triggers"] = [{"id": "t1", "when": {"event": "piece_exited", "piece_id": "missing"}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(missing_piece), "UNKNOWN_REFERENCE"), "condition piece ids must exist")
+	var gate_as_piece: Dictionary = minimal.duplicate(true)
+	gate_as_piece["triggers"] = [{"id": "t1", "when": {"event": "piece_exited", "piece_id": "red_exit"}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(gate_as_piece), "UNKNOWN_REFERENCE"), "a gate id cannot satisfy a piece reference")
+	var missing_gate: Dictionary = minimal.duplicate(true)
+	missing_gate["triggers"] = [{"id": "t1", "when": {"event": "piece_exited", "piece_id": "r1"}, "effect": {"type": "unlock_gate", "gate_id": "missing"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(missing_gate), "UNKNOWN_REFERENCE"), "effect gate ids must exist")
+	var missing_blocker: Dictionary = minimal.duplicate(true)
+	missing_blocker["triggers"] = [{"id": "t1", "when": {"event": "piece_exited", "piece_id": "r1"}, "effect": {"type": "remove_blocker", "blocker_id": "missing"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(missing_blocker), "UNKNOWN_REFERENCE"), "effect blocker ids must exist")
+	var trigger_field: Dictionary = minimal.duplicate(true)
+	trigger_field["triggers"] = [{"id": "t1", "trigger_id": "t1", "when": {"event": "piece_exited", "piece_id": "r1"}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(trigger_field), "UNSUPPORTED_MECHANIC"), "trigger_id is not a reference field")
+	var both_compound: Dictionary = minimal.duplicate(true)
+	both_compound["triggers"] = [{"id": "t1", "when": {"all": [{"event": "piece_exited", "piece_id": "r1"}], "any": [{"event": "piece_exited", "piece_id": "r1"}]}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(both_compound), "MALFORMED_TRIGGER"), "a condition cannot be both all and any")
+	var empty_compound: Dictionary = minimal.duplicate(true)
+	empty_compound["triggers"] = [{"id": "t1", "when": {"all": []}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(empty_compound), "MALFORMED_TRIGGER"), "compound conditions cannot be empty")
+	var bad_child: Dictionary = minimal.duplicate(true)
+	bad_child["triggers"] = [{"id": "t1", "when": {"any": [1]}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(bad_child), "MALFORMED_TRIGGER"), "compound condition entries must be objects")
+	var both_names: Dictionary = minimal.duplicate(true)
+	both_names["triggers"] = [{"id": "t1", "when": {"event": "piece_exited", "type": "piece_exited", "piece_id": "r1"}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(both_names), "MALFORMED_TRIGGER"), "event and type cannot both name a condition")
+	var bad_count: Dictionary = minimal.duplicate(true)
+	bad_count["triggers"] = [{"id": "t1", "when": {"event": "color_exits_at_least", "color": "red", "count": 1.5}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(bad_count), "MALFORMED_TRIGGER"), "fractional condition counts are rejected")
+	var zero_count: Dictionary = minimal.duplicate(true)
+	zero_count["triggers"] = [{"id": "t1", "when": {"event": "color_exits_at_least", "color": "red", "count": 0}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(zero_count), "MALFORMED_TRIGGER"), "a zero condition count is rejected")
+	var text_count: Dictionary = minimal.duplicate(true)
+	text_count["triggers"] = [{"id": "t1", "when": {"event": "color_exits_at_least", "color": "red", "count": "2"}, "effect": {"type": "reveal_piece", "piece_id": "r1"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(text_count), "MALFORMED_TRIGGER"), "string condition counts are not coerced")
+	var bad_counter: Dictionary = minimal.duplicate(true)
+	bad_counter["gates"][0]["counter"] = {"remaining": -1}
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(bad_counter), "MALFORMED_TRIGGER"), "negative counters are rejected")
+	var fraction_counter: Dictionary = minimal.duplicate(true)
+	fraction_counter["gates"][0]["counter"] = {"remaining": 1.5}
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(fraction_counter), "MALFORMED_TRIGGER"), "fractional counters are rejected")
+	var text_counter: Dictionary = minimal.duplicate(true)
+	text_counter["gates"][0]["counter"] = {"remaining": "1"}
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(text_counter), "MALFORMED_TRIGGER"), "string counters are not coerced")
+	var extra_counter: Dictionary = minimal.duplicate(true)
+	extra_counter["gates"][0]["counter"] = {"remaining": 1, "opens": true}
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(extra_counter), "UNSUPPORTED_MECHANIC"), "unknown counter fields are rejected")
+	var no_counter: Dictionary = minimal.duplicate(true)
+	no_counter["triggers"] = [{"id": "t1", "when": {"event": "piece_exited", "piece_id": "r1"}, "effect": {"type": "decrement_counter", "gate_id": "red_exit"}}]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(no_counter), "MALFORMED_TRIGGER"), "decrement_counter requires a gate counter")
+	var wall_width: Dictionary = minimal.duplicate(true)
+	wall_width["board"]["walls"] = [[0, 0, 1]]
+	_ok(LevelValidator.has_code(LevelValidator.validate_v2(wall_width), "INVALID_COORDINATE"), "wall arrays must have length 2")
 
 func _legacy_roundtrip() -> void:
 	var before_progress := Catalog.load_progress()

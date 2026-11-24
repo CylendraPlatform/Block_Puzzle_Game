@@ -9,7 +9,7 @@
 Version-aware loading, strict schema_version 2 validation, a non-destructive v1 adapter, canonical `PuzzleState` hashing, event envelopes, and a transition skeleton that rejects unimplemented rules. Live play still uses `Rules` and `BoardView`. The 100 level files and `progress.save` are not rewritten.
 
 ## Evidence
-Godot 4.7.2 stable (`D:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe`), Windows, 2026-11-24.
+Godot 4.7.2 stable (`D:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe`), Windows, 2026-11-24. Rerun after strict validation hardening:
 
 | Command | Exit |
 | --- | --- |
@@ -19,6 +19,10 @@ Godot 4.7.2 stable (`D:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe`), Win
 | `--headless --script res://test/test_services.gd` | 0 |
 | `--headless --script res://test/test_drag.gd` | 0 |
 | `--script res://test/test_layout.gd` | 0 (`screenshots: 36  failures: 0`) |
+
+Validation now rejects fractional, string, and boolean coordinates before conversion, unknown fields inside v2 objects, dangling piece/gate/blocker references, mixed compound conditions, and malformed counters. Optional defaults are listed in `docs/v2/SCHEMA_V2.md`.
+
+Intentionally deferred: `authored_metrics` keys are not allowlisted because they do not affect transitions; trigger cycles stay with TD-4; a non-null timer is rejected rather than parsed, because TD-6 owns that schema.
 
 Headless Godot still prints ObjectDB leak warnings on several scripts. Those warnings are not test failures. Layout screenshots are under `build/qa/layout/` and are not campaign assets. No Android device session was run for this change.
 

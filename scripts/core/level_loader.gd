@@ -6,7 +6,10 @@ extends RefCounted
 static func schema_version_of(data: Dictionary) -> int:
 	if not data.has("schema_version"):
 		return 1
-	return int(data["schema_version"])
+	var version: Variant = LevelValidator.as_whole_int(data["schema_version"])
+	if version == null:
+		return -1
+	return int(version)
 
 static func load_definition(data: Dictionary) -> Dictionary:
 	var version := schema_version_of(data)
@@ -35,5 +38,5 @@ static func load_definition(data: Dictionary) -> Dictionary:
 		"source": "rejected",
 		"legacy": null,
 		"definition": {},
-		"diagnostics": [LevelValidator._diag("UNSUPPORTED_VERSION", "schema_version", "Unsupported schema_version %d." % version)],
+		"diagnostics": [LevelValidator._diag("UNSUPPORTED_VERSION", "schema_version", "Unsupported schema_version %s." % str(data.get("schema_version", "")))],
 	}

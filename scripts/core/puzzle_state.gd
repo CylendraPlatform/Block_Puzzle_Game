@@ -20,9 +20,15 @@ static func from_definition(definition: Dictionary) -> PuzzleState:
 		if typeof(piece) != TYPE_DICTIONARY:
 			continue
 		var id := str(piece.get("id", ""))
-		var pos = piece.get("pos", [0, 0])
+		var pos = piece.get("pos", null)
+		if typeof(pos) != TYPE_ARRAY or pos.size() != 2:
+			continue
+		var px: Variant = LevelValidator.as_whole_int(pos[0])
+		var py: Variant = LevelValidator.as_whole_int(pos[1])
+		if px == null or py == null:
+			continue
 		state.pieces[id] = {
-			"pos": Vector2i(int(pos[0]), int(pos[1])),
+			"pos": Vector2i(int(px), int(py)),
 			"active": true,
 			"revealed": str(piece.get("reveal", "visible")) != "hidden",
 		}
@@ -31,7 +37,9 @@ static func from_definition(definition: Dictionary) -> PuzzleState:
 			continue
 		var remaining := -1
 		if gate.get("counter", null) is Dictionary:
-			remaining = int(gate["counter"].get("remaining", 0))
+			var rem: Variant = LevelValidator.as_whole_int(gate["counter"].get("remaining", null))
+			if rem != null and int(rem) >= 0:
+				remaining = int(rem)
 		state.gates[str(gate.get("id", ""))] = {
 			"mode": "LOCKED" if str(gate.get("initial_state", "open")) == "locked" else "OPEN",
 			"counter_remaining": remaining,
@@ -39,9 +47,14 @@ static func from_definition(definition: Dictionary) -> PuzzleState:
 	for blocker in definition.get("blockers", []):
 		if typeof(blocker) != TYPE_DICTIONARY:
 			continue
+		var blocker_remaining := -1
+		if blocker.has("counter_remaining"):
+			var rem: Variant = LevelValidator.as_whole_int(blocker["counter_remaining"])
+			if rem != null and int(rem) >= 0:
+				blocker_remaining = int(rem)
 		state.blockers[str(blocker.get("id", ""))] = {
 			"active": true,
-			"counter_remaining": int(blocker.get("counter_remaining", -1)),
+			"counter_remaining": blocker_remaining,
 		}
 	for trigger in definition.get("triggers", []):
 		if typeof(trigger) == TYPE_DICTIONARY:

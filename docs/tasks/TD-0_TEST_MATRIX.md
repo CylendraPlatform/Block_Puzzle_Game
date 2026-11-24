@@ -5,7 +5,7 @@ Schema fixtures in `test/fixtures/v2/` are not playable campaign levels.
 | Check | TD-1 evidence | Later |
 | --- | --- | --- |
 | v1 `Level.from_dict` and 100 files unchanged | `test_v2_foundation.gd` round-trip plus `validate_all.gd` | — |
-| Strict v2 diagnostics | schema fixtures for disconnect, overlap, gates, color, trigger, duplicate id, version | — |
+| Strict v2 diagnostics | schema fixtures plus negative cases for fractional and string numbers, unknown fields, id references, compound conditions, and counters | Cycle detection in TD-4; metric-key allowlist deferred |
 | Canonical state hash and deep copy | `test_v2_foundation.gd` | — |
 | Rejected transition does not mutate state | `RULES_NOT_IMPLEMENTED` and `UNSUPPORTED_FEATURE` | — |
 | `UNKNOWN_CAP_REACHED` is not `UNSOLVABLE` | `PuzzleEngine.search_status` | Real solver in TD-2 |

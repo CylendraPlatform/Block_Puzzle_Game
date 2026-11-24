@@ -17,7 +17,7 @@ Play, the editor, and the current solver each interpret sliding differently. v2 
 - Search status `UNKNOWN_CAP_REACHED` is distinct from `UNSOLVABLE`. Only a finished search with no solution may use `UNSOLVABLE`.
 - Missing `schema_version` or version 1 uses `Level.from_dict`. `V1Adapter.to_v2` returns a new dictionary and never rewrites `levels/*.json` or `progress.save`.
 - Legacy gates become `initial_state: open` with `accept: [color]`. Missing gate ids are `g{index}_{side}_{color}_{lo}_{hi}`. There is no side-wide fallback. Gates on one edge may share a span only when their accepted colors do not intersect.
-- The v2 field for presentation is `reveal` (`visible` or `hidden`). The GDD sample name `visibility` is not accepted.
+- The v2 field for presentation is `reveal` (`visible` or `hidden`). The GDD sample name `visibility` is an unknown field and fails validation. Integer coordinates are rejected when they are fractional, strings, or booleans; they are not truncated. Optional defaults are listed in `docs/v2/SCHEMA_V2.md`.
 - Logical colors are `red`, `blue`, `green`, `yellow`, `orange`, `purple`.
 - The legacy campaign stays a separate practice set identified by `legacy_index`. New v2 content will not reuse that index as its only id.
 
