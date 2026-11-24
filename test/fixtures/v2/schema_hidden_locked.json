@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "id": "schema-fixture-hidden",
+  "name": "Schema fixture, not a playable level",
+  "board": { "cols": 4, "rows": 4, "walls": [] },
+  "pieces": [
+    { "id": "r1", "cells": [[0, 0]], "pos": [0, 1], "color": "red", "reveal": "visible" },
+    { "id": "g1", "cells": [[0, 0]], "pos": [2, 2], "color": "green", "reveal": "hidden" }
+  ],
+  "gates": [
+    { "id": "red_exit", "side": "left", "lo": 1, "hi": 1, "accept": ["red"], "initial_state": "open" },
+    { "id": "green_exit", "side": "bottom", "lo": 2, "hi": 2, "accept": ["green"], "initial_state": "locked", "unlock_when": { "event": "piece_exited", "piece_id": "r1" } }
+  ],
+  "triggers": [
+    { "id": "reveal_green", "when": { "event": "piece_exited", "piece_id": "r1" }, "effect": { "type": "reveal_piece", "piece_id": "g1" } }
+  ],
+  "goals": { "all_required_pieces_exited": true },
+  "authored_metrics": { "fixture": "schema_only", "solver_proven": false }
+}

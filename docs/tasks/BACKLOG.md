@@ -1,6 +1,7 @@
 # Prioritized Backlog
 
-- **BP-101 [P0]** Release-readiness QA and evidence (see CURRENT_TASK.md).
+- **TD-0 / TD-1 [active]** Versioned puzzle-state foundation. See `docs/tasks/CURRENT_TASK.md`. TD-2 and later are not started.
+- **BP-101 [P0]** Release-readiness QA and evidence. The previous ledger text is retained below so that history is not dropped.
 - **BP-102 [P1]** Evaluate and polish gate-directed block exit animation, after user comparison.
 - **BP-103 [P1]** Playtest difficulty and onboarding; revise levels with solver verification.
 - **BP-104 [P1]** Safe-area and multi-resolution layout QA.
@@ -9,4 +10,8 @@
 - **BP-107 [P2]** Evaluate optional hints, boosters and daily challenges against playtest results.
 - **BP-108 [P3]** Real ads/IAP/analytics, privacy disclosures and store release work; requires explicit authorization.
 
-Items are proposals, not promises or completed work. Reprioritize after evidence from BP-101.
+## BP-101 archival scope
+
+Objective: make the current Godot puzzle game verifiably ready for a limited external Android beta, without speculative features or live monetization. Acceptance still includes a clean debug Android export, device gesture/undo/pause checks, frame-time measurement, exit animation, and level-curve playtests. Those items are not part of TD-0/TD-1. Baseline when that task was written: `main` at `71432387bbca5ed73d234bd0bb621a5812b38c70`.
+
+Items are proposals, not promises or completed work.

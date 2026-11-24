@@ -1,6 +1,6 @@
 # TD-0 + TD-1 — v2 Puzzle Engine Foundation
 
-**Status:** READY FOR IMPLEMENTATION — no implementation claimed yet.
+**Status:** Implemented on `feat/td0-td1-v2-foundation`. Evidence is in `docs/tasks/CURRENT_TASK.md`. Do not start TD-2 in this branch.
 **Branch:** `feat/td0-td1-v2-foundation`
 **Baseline:** `main` at `2403ab17f775931f2237404a7cc95115213d201c` (verify latest before coding).
 **Authoritative source:** `docs/TECHNICAL_DESIGN_v2.0.md`, sections 0–5 and 12–14; `docs/GDD_v2.0.md`.

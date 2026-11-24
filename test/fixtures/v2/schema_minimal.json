@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "id": "schema-fixture-minimal",
+  "name": "Schema fixture, not a playable level",
+  "board": { "cols": 4, "rows": 4, "walls": [[0, 0]] },
+  "rules": { "rotation": false, "timer_seconds": null },
+  "pieces": [
+    { "id": "r1", "cells": [[0, 0], [1, 0]], "pos": [1, 1], "color": "red", "required": true, "reveal": "visible" }
+  ],
+  "gates": [
+    { "id": "red_exit", "side": "right", "lo": 1, "hi": 1, "accept": ["red"], "initial_state": "open" }
+  ],
+  "triggers": [],
+  "goals": { "all_required_pieces_exited": true },
+  "authored_metrics": { "fixture": "schema_only", "solver_proven": false }
+}
