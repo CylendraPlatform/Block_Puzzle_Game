@@ -1,0 +1,5 @@
+---
+description: Shared Block Puzzle project rules and task entry
+alwaysApply: true
+---
+Read AGENTS.md and docs/tasks/CURRENT_TASK.md first. Follow repository runbooks. Do not duplicate task tracking. Protect existing Godot game features, keep every player-facing string English, and do not push to main or change global settings without approval.

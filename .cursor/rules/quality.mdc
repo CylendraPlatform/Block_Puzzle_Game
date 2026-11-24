@@ -1,0 +1,6 @@
+---
+description: Puzzle level, QA and shipping checks
+globs: levels/**/*,test/**/*,docs/TEST_PLAN.md
+alwaysApply: false
+---
+Use docs/runbooks/testing.md. Test all 100 levels for solvability, record source of evidence, and do not confuse shortest-path difficulty with player experience. Never claim store readiness without device, performance and policy checks.

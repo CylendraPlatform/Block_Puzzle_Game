@@ -1,0 +1,6 @@
+---
+description: Godot GDScript and scene editing
+globs: scripts/**/*.gd,scenes/**/*.tscn,themes/**/*,project.godot
+alwaysApply: false
+---
+Read AGENTS.md, docs/TECHNICAL_DESIGN.md and docs/runbooks/testing.md. Preserve deterministic core gameplay, undo snapshots, save compatibility and signal ordering. For interaction changes, run test/test_drag.gd plus on-device QA if available.
