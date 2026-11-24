@@ -6,6 +6,8 @@ godot --headless --path . --script res://test/test_rules.gd
 godot --headless --path . --script res://test/validate_all.gd
 godot --headless --path . --script res://test/test_services.gd
 godot --headless --path . --script res://test/test_drag.gd
+godot --headless --path . --script res://test/test_v2_foundation.gd
+godot --path . --script res://test/test_layout.gd
 ```
 Document version, command, exit code, and relevant output. No passing result may be inferred from code inspection.
 

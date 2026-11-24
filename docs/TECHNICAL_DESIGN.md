@@ -13,6 +13,11 @@ scripts/
     rules.gd      slide / collision / exit + BFS solver (solve, solve_min_moves)
     catalog.gd    level discovery + progress persistence
     settings.gd   [autoload Settings] preferences + transient nav state
+    level_loader.gd, level_validator.gd, v1_adapter.gd
+                  v2 schema validation and non-destructive v1 adapter
+    puzzle_state.gd, puzzle_action.gd, puzzle_event.gd, puzzle_engine.gd
+                  canonical state, event envelopes, and TD-1 transition skeleton (no live play migration)
+    See docs/decisions/ADR-002-deterministic-puzzle-state.md and docs/v2/SCHEMA_V2.md.
   game/
     board_view.gd rendering + touch-drag + easing (the only input surface)
     game.gd       controller: level flow, HUD, pause, undo, win, analytics hooks

@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "id": "schema-fixture-disconnected",
+  "name": "Schema fixture, not a playable level",
+  "board": { "cols": 4, "rows": 4, "walls": [] },
+  "pieces": [
+    { "id": "r1", "cells": [[0, 0], [2, 0]], "pos": [0, 0], "color": "red", "reveal": "visible" }
+  ],
+  "gates": [
+    { "id": "red_exit", "side": "right", "lo": 0, "hi": 0, "accept": ["red"], "initial_state": "open" }
+  ],
+  "authored_metrics": { "fixture": "schema_only", "solver_proven": false }
+}

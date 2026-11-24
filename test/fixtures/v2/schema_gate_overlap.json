@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "schema-fixture-gates",
+  "name": "Schema fixture, not a playable level",
+  "board": { "cols": 4, "rows": 4, "walls": [] },
+  "pieces": [
+    { "id": "r1", "cells": [[0, 0]], "pos": [0, 0], "color": "red", "reveal": "visible" }
+  ],
+  "gates": [
+    { "id": "a", "side": "bottom", "lo": 0, "hi": 2, "accept": ["red"], "initial_state": "open" },
+    { "id": "b", "side": "bottom", "lo": 2, "hi": 3, "accept": ["red"], "initial_state": "open" }
+  ],
+  "authored_metrics": { "fixture": "schema_only", "solver_proven": false }
+}
