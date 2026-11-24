@@ -1,32 +1,48 @@
-# TD-0 + TD-1 — v2 puzzle-state foundation
+# TD-2 — Complete legal movement and Solver v2
 
-**Status:** Implemented on `feat/td0-td1-v2-foundation`. Not merged.
-**Baseline:** `main` at `2403ab17f775931f2237404a7cc95115213d201c`.
-**Spec:** `docs/tasks/TD-0_TD-1_IMPLEMENTATION.md`.
-**Contracts:** `docs/decisions/ADR-002-deterministic-puzzle-state.md`, `docs/v2/SCHEMA_V2.md`, `docs/tasks/TD-0_TEST_MATRIX.md`.
+**Status:** Implemented on `feat/td2-complete-solver`. Not merged.
+**Baseline:** `origin/main` at `5a7d9d3` (merge of TD-0/TD-1). This branch starts at `b97b3d0`.
+**Spec:** `docs/tasks/TD-2_IMPLEMENTATION.md`.
+**Contract:** `docs/v2/SOLVER_V2.md`.
 
 ## What this task delivered
-Version-aware loading, strict schema_version 2 validation, a non-destructive v1 adapter, canonical `PuzzleState` hashing, event envelopes, and a transition skeleton that rejects unimplemented rules. Live play still uses `Rules` and `BoardView`. The 100 level files and `progress.save` are not rewritten.
+`PuzzleEngine` enumerates every free cardinal landing and a single straight open-gate exit. `SolverV2` searches those actions with breadth-first search and replays the witness through `transition`. Live play still uses `Rules` and `BoardView`. The 100 level files, progress saves, safe-area layout, and monetization stubs are unchanged.
+
+An EXIT is one committed move along the gate's outward direction, including the slide from the interior when the ray is clear. Intermediate stops are MOVE actions. Collision blocks an exit. Search keys omit `move_number`. `UNKNOWN_CAP_REACHED` is not reported as `UNSOLVABLE`.
 
 ## Evidence
-Godot 4.7.2 stable (`D:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe`), Windows, 2026-11-24. Rerun after strict validation hardening:
+Godot 4.7.2 stable (`D:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe`), Windows, 2026-11-24.
 
 | Command | Exit |
 | --- | --- |
 | `--headless --script res://test/test_v2_foundation.gd` | 0 (`== done: 0 failure(s) ==`) |
+| `--headless --script res://test/test_v2_solver.gd` | 0 (`== done: 0 failure(s) ==`) |
+| `--headless --script res://test/test_rules.gd` | 0 |
+| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
+| `--headless --script res://test/test_services.gd` | 0 |
+| `--headless --script res://test/test_drag.gd` | 0 |
+| `--script res://test/test_layout.gd` | 0 (`screenshots: 36  failures: 0`) |
+| `--headless --script res://test/test_v2_campaign.gd` | 0 (`CAMPAIGN solved=60 cap=40 failed=0`, about 910 seconds, expansion cap 2500) |
+
+The 40 cap results are levels 036, 044, 045, 050, 057, 061, 062, 064, 065, 067–072, 074, 075, 077–084, and 086–100. Those levels were not v2-solver verified. None returned `UNSOLVABLE` or a replay failure. All 100 adapters passed schema validation inside `test_v2_solver.gd`. The first eight levels were solved and replayed inside that script, and level 1's exit length matches `Rules.solve_min_moves`.
+
+Headless Godot printed ObjectDB leak warnings and `1 resources still in use` on the solver and campaign scripts. Those warnings are not assertion failures. No Android device session was run. Desktop renders are not device QA.
+
+## Not in this task
+TD-3 art, editor, and content. TD-4 trigger and event execution. BoardView migration. New levels. Ads, IAP, remote analytics.
+
+## TD-0 / TD-1 history
+Implemented on `feat/td0-td1-v2-foundation` and merged as PR #4 (`5a7d9d3`). Evidence from that branch, Godot 4.7.2, 2026-11-24, after strict validation hardening:
+
+| Command | Exit |
+| --- | --- |
+| `--headless --script res://test/test_v2_foundation.gd` | 0 |
 | `--headless --script res://test/test_rules.gd` | 0 |
 | `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
 | `--headless --script res://test/test_services.gd` | 0 |
 | `--headless --script res://test/test_drag.gd` | 0 |
 | `--script res://test/test_layout.gd` | 0 (`screenshots: 36  failures: 0`) |
 
-Validation now rejects fractional, string, and boolean coordinates before conversion, unknown fields inside v2 objects, dangling piece/gate/blocker references, mixed compound conditions, and malformed counters. Optional defaults are listed in `docs/v2/SCHEMA_V2.md`.
-
-Intentionally deferred: `authored_metrics` keys are not allowlisted because they do not affect transitions; trigger cycles stay with TD-4; a non-null timer is rejected rather than parsed, because TD-6 owns that schema.
-
-Headless Godot still prints ObjectDB leak warnings on several scripts. Those warnings are not test failures. Layout screenshots are under `build/qa/layout/` and are not campaign assets. No Android device session was run for this change.
-
-## Not in this task
-TD-2 legal landings and solver witnesses, TD-4 event execution, timer/gold/undo session, BoardView migration, new levels, and monetization SDKs.
+The same six commands were rerun on this branch and are listed in the TD-2 evidence table. Deferred from TD-1: `authored_metrics` keys are not allowlisted; trigger cycles stay with TD-4; a non-null timer is rejected rather than parsed.
 
 BP-101 release-readiness remains in `docs/tasks/BACKLOG.md`.

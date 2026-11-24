@@ -1,6 +1,6 @@
 # TD-2 — Complete Legal Movement, Deterministic Transitions & Solver v2
 
-**Status:** READY FOR IMPLEMENTATION (no TD-2 code or tests are claimed complete)
+**Status:** Implemented on `feat/td2-complete-solver`. Evidence is in `docs/tasks/CURRENT_TASK.md`. TD-3 and TD-4 are not started.
 **Branch:** `feat/td2-complete-solver`
 **Baseline main:** `5a7d9d3cdbef19be01589f6e63c3b0d39dffd17b` — revalidate before coding.
 **Authoritative:** `docs/TECHNICAL_DESIGN_v2.0.md` §§ 3–7, 12–14; `docs/GDD_v2.0.md` §§ 3–4; `docs/v2/SCHEMA_V2.md`; `docs/decisions/ADR-002-deterministic-puzzle-state.md`.

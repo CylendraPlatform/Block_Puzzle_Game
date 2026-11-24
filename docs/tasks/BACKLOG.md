@@ -1,6 +1,7 @@
 # Prioritized Backlog
 
-- **TD-0 / TD-1 [active]** Versioned puzzle-state foundation. See `docs/tasks/CURRENT_TASK.md`. TD-2 and later are not started.
+- **TD-2 [active]** Complete legal movement and Solver v2. See `docs/tasks/CURRENT_TASK.md`. TD-3 and TD-4 are not started.
+- **TD-0 / TD-1 [done]** Versioned puzzle-state foundation. Historical evidence stays in `docs/tasks/CURRENT_TASK.md`.
 - **BP-101 [P0]** Release-readiness QA and evidence. The previous ledger text is retained below so that history is not dropped.
 - **BP-102 [P1]** Evaluate and polish gate-directed block exit animation, after user comparison.
 - **BP-103 [P1]** Playtest difficulty and onboarding; revise levels with solver verification.

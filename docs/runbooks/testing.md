@@ -7,9 +7,11 @@ godot --headless --path . --script res://test/validate_all.gd
 godot --headless --path . --script res://test/test_services.gd
 godot --headless --path . --script res://test/test_drag.gd
 godot --headless --path . --script res://test/test_v2_foundation.gd
+godot --headless --path . --script res://test/test_v2_solver.gd
+godot --headless --path . --script res://test/test_v2_campaign.gd
 godot --path . --script res://test/test_layout.gd
 ```
-Document version, command, exit code, and relevant output. No passing result may be inferred from code inspection.
+Document version, command, exit code, and relevant output. No passing result may be inferred from code inspection. `test_v2_campaign.gd` replays adapted levels with a 2500 expansion cap. A CAP line is a budget limit, not an unsolvable level. That script can take several minutes.
 
 For presentation/UI changes, launch the actual game and check Main Menu, Level Select, gameplay, pause, settings, editor and win screen. On Android, test touch gestures, exit, undo, restart and persistence. Include at least two screen sizes when possible; record unavailable tests as NOT RUN.
 
