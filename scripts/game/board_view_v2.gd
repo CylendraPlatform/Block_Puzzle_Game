@@ -8,6 +8,13 @@ signal grabbed
 signal bumped
 
 const EASE_SPEED := 16.0
+## A clear exit commits once the finger travels this far past the last in-board
+## landing, measured in cells. Releasing on that landing stays a normal move.
+const EXIT_PAST := 0.34
+## System gesture bands eat the last part of a swipe. Inside the screen-edge
+## zone the same exit needs only this shorter push past the last landing.
+const EXIT_PAST_AT_EDGE := 0.12
+const EDGE_ZONE := 48.0
 
 var definition: Dictionary = {}
 var state: PuzzleState
@@ -21,6 +28,7 @@ var _drag_origin := Vector2i.ZERO
 var _grab := Vector2.ZERO
 var _axis := ""
 var _drag_px := 0.0
+var _pointer := Vector2.ZERO
 var _dragging := false
 var _exits: Array[Dictionary] = []
 
@@ -71,6 +79,17 @@ static func choose_action(actions: Array, origin: Vector2i, direction: String, s
 	if by_dist.has(want):
 		return by_dist[want]
 	return null
+
+static func steps_for_drag(travel_cells: float, max_dist: int, exit_ready: bool, near_edge: bool) -> int:
+	if travel_cells < 0.5:
+		return 0
+	var past := EXIT_PAST_AT_EDGE if near_edge else EXIT_PAST
+	if exit_ready and travel_cells >= float(max_dist) + past:
+		return max_dist + 1
+	var landed := int(round(travel_cells))
+	if landed < 1:
+		return 0
+	return mini(landed, max_dist)
 
 func _process(delta: float) -> void:
 	var still: Array[Dictionary] = []
@@ -296,6 +315,7 @@ func _begin(px: Vector2) -> void:
 	_drag_id = id
 	_drag_origin = state.pieces[id]["pos"]
 	_grab = px
+	_pointer = px
 	_axis = ""
 	_drag_px = 0.0
 	_dragging = true
@@ -304,6 +324,7 @@ func _begin(px: Vector2) -> void:
 func _move(px: Vector2) -> void:
 	if not _dragging or _cell <= 0.0:
 		return
+	_pointer = px
 	var delta := px - _grab
 	if _axis == "" and delta.length() < _cell * 0.18:
 		return
@@ -325,11 +346,12 @@ func _move(px: Vector2) -> void:
 func _end() -> void:
 	if not _dragging:
 		return
-	var steps := int(round(_drag_px / _cell)) if _cell > 0.0 else 0
 	var limits := _limits(_axis)
+	var travel := _drag_px / _cell if _cell > 0.0 else 0.0
+	var steps := steps_for_drag(travel, int(limits["max"]), bool(limits["exit"]), _near_screen_edge(_axis, _pointer))
 	var actions := PuzzleEngine.legal_actions(definition, state, _drag_id)
 	var action := choose_action(actions, _drag_origin, _axis, steps)
-	var overshot := steps > int(limits["max"]) and not bool(limits["exit"])
+	var overshot := travel > float(limits["max"]) + 0.5 and not bool(limits["exit"])
 	_dragging = false
 	_drag_id = ""
 	_axis = ""
@@ -340,6 +362,19 @@ func _end() -> void:
 	if overshot:
 		bumped.emit()
 	commit_requested.emit(action)
+
+func _near_screen_edge(direction: String, px: Vector2) -> bool:
+	var zone := maxf(EDGE_ZONE, _cell * 0.45)
+	match direction:
+		"left":
+			return px.x <= zone
+		"right":
+			return px.x >= size.x - zone
+		"up":
+			return px.y <= zone
+		"down":
+			return px.y >= size.y - zone
+	return false
 
 func _piece_at(cell: Vector2i) -> String:
 	var geometry := PuzzleEngine._geometry(definition)

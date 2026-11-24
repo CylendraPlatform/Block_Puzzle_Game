@@ -21,7 +21,7 @@ An exit slides the silhouette out along the committed direction while input is l
 
 1. Open the project in the Godot 4.7.2 editor, or launch the game with the user argument `--dev`.
 2. On the main menu, press **v2 Pilot**.
-3. Drag a piece along a row or column. Release on a grid landing. Drag past the edge to take a matching gate.
+3. Drag a piece along a row or column. Release on a grid landing. Push about a third of a cell past the last landing to leave through a clear matching gate. A release on the last cell stays there.
 4. Undo and Restart restore committed state. Menu returns to the main menu and does not write campaign progress.
 
 ## Evidence
@@ -76,8 +76,8 @@ Exit 0. `apksigner` verified APK Signature Scheme v2 and v3. The signer is the l
 | Field | Value |
 | --- | --- |
 | File | `build/android/BlockPuzzle-TD3-QA-debug.apk` |
-| Size | 59,133,923 bytes |
-| SHA-256 | `9ef611080c6235d61e35a305673521ce22278d1ded4d971f74a72937ab9bf666` |
+| Size | 59,360,653 bytes |
+| SHA-256 | `00d8e8dd1fbf7a3bdc04bb497cc8931650f6a62ae79ec8d7d01b3e63b5fb1a27` |
 | Package | `com.blockpuzzle.game` |
 | Contents | 100 `levels/level_*.json` files and 15 `levels_v2/pilot/v2_*.json` files |
 
@@ -97,6 +97,16 @@ Installed on the already running `Pixel_10_Pro_XL` emulator (`sdk_gphone16k_x86_
 | Crashes | None in the recent error log. |
 
 A single swipe from the first cell to the right edge stopped on the last cell instead of exiting. The exit committed when the next drag crossed the gate. Screenshots are in `build/qa/android/` and are not committed.
+
+## Exit gesture
+
+`BoardViewV2.steps_for_drag` interprets the finger. `PuzzleEngine` is unchanged.
+
+A drag commits an exit only when that exit is already legal and the finger has traveled **0.34 cell past the furthest in-board landing**. Releasing on that landing, or up to 0.33 cell past it, stays a move. Inside the screen-edge zone (`max(48 px, 0.45 cell)` from the control border in the drag direction) the same exit needs only **0.12 cell** past the landing, so a system gesture band does not force a second drag. A blocked path still stops on the last free cell.
+
+`test_v2_session.gd` covers short and long swipes, the two thresholds, one-cell and multi-cell pieces, all four directions, a wall in front of a gate, and undo after the exit. Exit code 0 on 2026-11-24.
+
+The rebuilt debug APK was installed on the same `Pixel_10_Pro_XL` emulator. On v2-001, a short swipe moved one cell and left the count at 1. A swipe that ended on the last cell stayed there, still one move, with no win. After Undo, one swipe from the first cell through the gate opened **Pilot Clear** at move 1. The clear dialog covers the board, so the on-screen Undo button did not receive that tap. Undo after an exit is covered by `test_v2_session.gd`. This is still an emulator, not a physical phone.
 
 ## Not accepted yet
 
