@@ -210,7 +210,31 @@ func _on_won() -> void:
 		Audio.sfx("win")
 	if Analytics:
 		Analytics.log_event("level_complete", {"level": _current_level_id(), "moves": _moves, "stars": stars, "undos": _undos})
+	_celebrate()
 	_win_panel.visible = true
+
+## Short, controlled celebratory particle burst (auto-frees).
+func _celebrate() -> void:
+	var p := CPUParticles2D.new()
+	p.position = size * 0.5
+	p.amount = 28
+	p.one_shot = true
+	p.explosiveness = 0.95
+	p.lifetime = 0.9
+	p.direction = Vector2(0, -1)
+	p.spread = 180.0
+	p.initial_velocity_min = 220.0
+	p.initial_velocity_max = 420.0
+	p.gravity = Vector2(0, 520)
+	p.scale_amount_min = 3.0
+	p.scale_amount_max = 6.0
+	var grad := Gradient.new()
+	grad.set_color(0, Style.BLOCK["yellow"])
+	grad.set_color(1, Style.BLOCK["green"])
+	p.color_ramp = grad
+	add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.6).timeout.connect(p.queue_free)
 
 func _on_next() -> void:
 	if _custom:

@@ -16,6 +16,7 @@ const GRID_LINE := Color("#3a4166")
 const WALL := Style.WALL
 const EASE_SPEED := Style.EASE_SPEED
 var _t := 0.0   ## time accumulator for idle gate pulse
+var _sb := StyleBoxFlat.new()   ## pooled stylebox (reused each draw, no per-frame allocs)
 
 var level: Level
 var blocks: Array[Dictionary] = []
@@ -81,20 +82,22 @@ func _recompute_layout() -> void:
 	var bh := _cell * level.rows
 	_origin = Vector2((size.x - bw) * 0.5, (size.y - bh) * 0.5)
 
-## Draw a rounded rect (optionally bordered / shadowed) via a StyleBoxFlat.
+## Draw a rounded rect (optionally bordered / shadowed) via a pooled StyleBoxFlat.
+## Reuses one box (draw_style_box reads it immediately) to avoid per-frame allocs.
 func _rounded(rect: Rect2, color: Color, radius: float, border_col := Color(0, 0, 0, 0), border_w := 0.0, shadow := 0.0, shadow_a := 0.5) -> void:
-	var sb := StyleBoxFlat.new()
+	var sb := _sb
 	sb.bg_color = color
 	sb.set_corner_radius_all(int(radius))
-	if border_w > 0.0:
-		sb.set_border_width_all(int(border_w))
-		sb.border_color = border_col
+	sb.set_border_width_all(int(border_w))
+	sb.border_color = border_col
 	if shadow > 0.0:
 		var sc := Style.SHADOW
 		sc.a = shadow_a
 		sb.shadow_color = sc
 		sb.shadow_size = int(shadow)
 		sb.shadow_offset = Vector2(0, shadow * 0.5)
+	else:
+		sb.shadow_size = 0
 	draw_style_box(sb, rect)
 
 func _cell_from_px(px: Vector2) -> Vector2i:
@@ -190,7 +193,7 @@ func _draw_gate(g: Dictionary) -> void:
 	var pulse := 0.55 + 0.45 * (sin(_t * TAU / Style.GATE_PULSE) * 0.5 + 0.5)
 	var glow := col
 	glow.a = 0.0
-	var sb := StyleBoxFlat.new()
+	var sb := _sb   # pooled
 	sb.bg_color = col
 	sb.set_corner_radius_all(int(thick * 0.5))
 	sb.border_color = col.lightened(0.35)
@@ -198,6 +201,7 @@ func _draw_gate(g: Dictionary) -> void:
 	var gc := col
 	gc.a = 0.6 * pulse
 	sb.shadow_color = gc
+	sb.shadow_offset = Vector2.ZERO
 	sb.shadow_size = int(_cell * 0.22 * pulse)
 	draw_style_box(sb, r)
 
