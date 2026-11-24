@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-007",
+  "name": "Around the Wall",
+  "board": {"cols": 5, "rows": 4, "walls": [[4, 2], [4, 3]]},
+  "pieces": [
+    {"id": "green", "color": "green", "cells": [[0, 0], [1, 0], [0, 1]], "pos": [0, 2], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "green_right", "side": "right", "lo": 0, "hi": 1, "accept": ["green"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Go around the wall.", "intent": "The wall closes the lower rows, so the L has to rise before it can reach the gate."}
+}

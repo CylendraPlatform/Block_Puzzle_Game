@@ -28,6 +28,7 @@ func _build() -> void:
 	column.add_child(UIKit.button("Levels", _on_levels))
 	if DevAccess.enabled():
 		column.add_child(UIKit.button("Editor", _on_editor))
+		column.add_child(UIKit.button("v2 Pilot", _on_pilot))
 	column.add_child(UIKit.button("Settings", _on_settings))
 
 func _on_play() -> void:
@@ -39,6 +40,9 @@ func _on_levels() -> void:
 
 func _on_editor() -> void:
 	get_tree().change_scene_to_file("res://scenes/Editor.tscn")
+
+func _on_pilot() -> void:
+	get_tree().change_scene_to_file("res://scenes/Pilot.tscn")
 
 func _on_settings() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScreen.tscn")

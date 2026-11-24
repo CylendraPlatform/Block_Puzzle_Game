@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-009",
+  "name": "The Detour",
+  "board": {"cols": 6, "rows": 3, "walls": [[3, 1]]},
+  "pieces": [
+    {"id": "orange", "color": "orange", "cells": [[0, 0], [1, 0]], "pos": [0, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "orange_right", "side": "right", "lo": 1, "hi": 1, "accept": ["orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "The wall forces a detour.", "intent": "A bar cannot pass the wall on its row. It goes over the wall and comes back down at the gate."}
+}

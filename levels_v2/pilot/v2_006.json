@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "id": "v2-006",
+  "name": "Whole Shape",
+  "board": {"cols": 4, "rows": 4, "walls": []},
+  "pieces": [
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [0, 2], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "too_narrow", "side": "top", "lo": 0, "hi": 0, "accept": ["green"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 0, "hi": 1, "accept": ["green"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "A gate must cover the whole shape.", "intent": "The one-cell top gate is too narrow for the L. The two-cell side gate fits only after the L moves up."}
+}

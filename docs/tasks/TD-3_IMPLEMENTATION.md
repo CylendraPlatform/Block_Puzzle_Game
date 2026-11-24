@@ -1,6 +1,6 @@
 # TD-3 — Playable v2 Geometry, Precise Gates, and 15 Authored Pilot Levels
 
-**Status:** READY FOR IMPLEMENTATION (no TD-3 source code, content, or Android QA claimed complete).
+**Status:** Implemented on `feat/td3-geometry-gates-pilot`. Solver replay and desktop screenshots are recorded in `docs/tasks/CURRENT_TASK.md`. Physical Android QA and a human playtest are not done, so this milestone is not fully accepted. The interactive v2 editor is deferred; the pilot screen is the preview.
 **Branch:** `feat/td3-geometry-gates-pilot`
 **Baseline:** `main` at `696b485375ec831fe4ff88f31313be250e762e8a`; verify remote main before work.
 **Authority:** `docs/GDD_v2.0.md`, `docs/TECHNICAL_DESIGN_v2.0.md`, `docs/v2/SCHEMA_V2.md`, `docs/v2/SOLVER_V2.md`, `docs/decisions/ADR-002-deterministic-puzzle-state.md`.

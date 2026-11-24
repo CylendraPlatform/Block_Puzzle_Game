@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-002",
+  "name": "Straight Down",
+  "board": {"cols": 1, "rows": 4, "walls": []},
+  "pieces": [
+    {"id": "green", "color": "green", "cells": [[0, 0]], "pos": [0, 0], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "green_bottom", "side": "bottom", "lo": 0, "hi": 0, "accept": ["green"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Drag downward into the exit.", "intent": "The same gesture works on the vertical axis."}
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-004",
+  "name": "Match the Row",
+  "board": {"cols": 5, "rows": 3, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [2, 2], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 0, "hi": 0, "accept": ["red"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Move onto the exit row, then leave.", "intent": "The gate is not on the starting row, so the piece must change rows first."}
+}

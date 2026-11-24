@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "id": "v2-015",
+  "name": "Last Corridor",
+  "board": {"cols": 5, "rows": 5, "walls": [[2, 2], [3, 2]]},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0], [0, 1], [1, 0]], "pos": [0, 0], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [1, 0], [2, 0]], "pos": [0, 3], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_bottom", "side": "bottom", "lo": 3, "hi": 4, "accept": ["red"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 4, "hi": 4, "accept": ["green"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Plan a path for both shapes.", "intent": "A wall splits the board. Each shape has to reach a gate that matches its full width."}
+}

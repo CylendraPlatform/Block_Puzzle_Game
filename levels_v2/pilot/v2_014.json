@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "id": "v2-014",
+  "name": "Red Must Leave",
+  "board": {"cols": 5, "rows": 2, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [0, 0], "required": false, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_top", "side": "top", "lo": 2, "hi": 2, "accept": ["red"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Only the red shape has to leave.", "intent": "Yellow is optional. Red must stop on column 2; the far end of the row is not the exit."}
+}

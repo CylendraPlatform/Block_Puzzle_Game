@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-010",
+  "name": "Stop Short",
+  "board": {"cols": 5, "rows": 4, "walls": []},
+  "pieces": [
+    {"id": "purple", "color": "purple", "cells": [[0, 0], [1, 0], [2, 0], [1, 1]], "pos": [0, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "purple_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["purple"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Stop in front of the wide gate. Sliding too far misses it.", "intent": "The T fits the gate only at one column. The furthest slide does not."}
+}

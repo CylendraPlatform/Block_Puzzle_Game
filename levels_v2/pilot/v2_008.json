@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "id": "v2-008",
+  "name": "Make Room",
+  "board": {"cols": 4, "rows": 3, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [2, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 1, "hi": 1, "accept": ["red"], "initial_state": "open"},
+    {"id": "blue_top", "side": "top", "lo": 2, "hi": 2, "accept": ["blue"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Move the other shape out of the way.", "intent": "Blue stands in the lane. It leaves upward, then red can reach the side gate."}
+}

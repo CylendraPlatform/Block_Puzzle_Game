@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-003",
+  "name": "One Bar",
+  "board": {"cols": 5, "rows": 3, "walls": []},
+  "pieces": [
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [1, 0], [2, 0]], "pos": [0, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "blue_right", "side": "right", "lo": 1, "hi": 1, "accept": ["blue"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "The whole bar leaves together.", "intent": "A connected bar uses one gate that matches its row."}
+}

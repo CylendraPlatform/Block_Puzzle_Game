@@ -8,6 +8,9 @@ godot --headless --path . --script res://test/test_services.gd
 godot --headless --path . --script res://test/test_drag.gd
 godot --headless --path . --script res://test/test_v2_foundation.gd
 godot --headless --path . --script res://test/test_v2_solver.gd
+godot --headless --path . --script res://test/test_v2_session.gd
+godot --headless --path . --script res://test/test_v2_pilot.gd
+godot --path . --script res://test/test_v2_pilot_shots.gd
 godot --headless --path . --script res://test/test_v2_campaign.gd
 godot --headless --path . --script res://test/profile_v2_search.gd
 godot --path . --script res://test/test_layout.gd
