@@ -161,6 +161,14 @@ func _draw() -> void:
 	for gate in definition.get("gates", []):
 		if typeof(gate) == TYPE_DICTIONARY:
 			_draw_gate(gate, cols, rows)
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var bid := str(blocker.get("id", ""))
+		if state.blockers.has(bid) and bool(state.blockers[bid]["active"]):
+			var bcell = blocker.get("cell", null)
+			if typeof(bcell) == TYPE_ARRAY and bcell.size() == 2:
+				_draw_blocker(Vector2i(int(bcell[0]), int(bcell[1])))
 	var geometry := PuzzleEngine._geometry(definition)
 	_draw_preview(geometry)
 	var ids: Array = geometry.keys()
@@ -169,6 +177,11 @@ func _draw() -> void:
 		if not state.pieces.has(id) or not bool(state.pieces[id]["active"]):
 			continue
 		var origin: Vector2i = state.pieces[id]["pos"]
+		# A hidden piece occupies its cells but shows no colour until revealed.
+		if not bool(state.pieces[id].get("revealed", true)):
+			for offset in geometry[id]["offsets"]:
+				_draw_hidden(origin + offset)
+			continue
 		var base := _px(origin)
 		if _visual.has(id):
 			base = _visual[id]
@@ -197,11 +210,22 @@ func _draw_preview(geometry: Dictionary) -> void:
 	_draw_piece(_drag_id, geometry[_drag_id], base, 0.15)
 
 func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
-	var accepts: Array = gate.get("accept", [])
+	# Static visual derived from the authoritative gate state: scheduled colour for a
+	# color-switching gate, a locked style + lock glyph while LOCKED, and a counter badge.
+	var gid := str(gate.get("id", ""))
+	var gstate: Dictionary = state.gates.get(gid, {})
+	var locked := str(gstate.get("mode", "OPEN")) == "LOCKED"
 	var color_name := "red"
-	if not accepts.is_empty():
-		color_name = str(accepts[0])
+	if GateRules.is_color_switching(gate):
+		color_name = GateRules.scheduled_color(gate, int(gstate.get("phase", 0)))
+	else:
+		var accepts: Array = gate.get("accept", [])
+		if not accepts.is_empty():
+			color_name = str(accepts[0])
 	var color := TD35Theme.piece_color(color_name)
+	if locked:
+		color = color.darkened(0.45)
+		color.s *= 0.5
 	var lo := int(gate.get("lo", 0))
 	var hi := int(gate.get("hi", lo))
 	var span := float(hi - lo + 1) * _cell
@@ -228,6 +252,53 @@ func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 			return
 	_round(hole, TD35Theme.CANVAS, int(clampf(_cell * 0.12, 4.0, 12.0)))
 	_round(lip, color, int(clampf(_cell * 0.1, 3.0, 8.0)))
+	if locked:
+		_glyph_lock(lip.get_center())
+	var remaining := int(gstate.get("counter_remaining", -1))
+	if remaining > 0:
+		_badge(lip.get_center(), str(remaining))
+
+## A small padlock glyph (shackle arc + body) so a locked gate reads without colour.
+func _glyph_lock(center: Vector2) -> void:
+	var s := clampf(_cell * 0.22, 8.0, 20.0)
+	var body := Rect2(center - Vector2(s * 0.5, s * 0.1), Vector2(s, s * 0.7))
+	draw_rect(body, Color.WHITE)
+	draw_rect(body, Color(0, 0, 0, 0.85), false, maxf(1.5, s * 0.08))
+	var r := s * 0.32
+	draw_arc(center - Vector2(0, s * 0.1), r, PI, TAU, 10, Color.WHITE, maxf(2.0, s * 0.12))
+	draw_circle(center + Vector2(0, s * 0.22), maxf(1.5, s * 0.08), Color(0, 0, 0, 0.85))
+
+## A high-contrast numeric badge (counter remaining), legible on a dense small screen.
+func _badge(center: Vector2, text: String) -> void:
+	var r := clampf(_cell * 0.2, 9.0, 18.0)
+	draw_circle(center, r, Color(0.1, 0.12, 0.2, 0.95))
+	draw_arc(center, r, 0.0, TAU, 20, Color.WHITE, maxf(1.5, r * 0.14))
+	var font := ThemeDB.fallback_font
+	var fs := int(r * 1.2)
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
+	draw_string(font, center + Vector2(-w * 0.5, fs * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+
+## An active blocker: a distinct hatched obstacle tile (shape + cross-hatch, not colour).
+func _draw_blocker(cell: Vector2i) -> void:
+	var gap := clampf(_cell * 0.08, 2.0, 4.0)
+	var rect := Rect2(_px(cell) + Vector2(gap, gap), Vector2(_cell - gap * 2.0, _cell - gap * 2.0))
+	_round(rect, TD35Theme.WALL, int(clampf(_cell * 0.14, 6.0, 12.0)))
+	var inset := _cell * 0.22
+	var a := _px(cell) + Vector2(inset, inset)
+	var b := _px(cell) + Vector2(_cell - inset, _cell - inset)
+	var line := Color(1, 1, 1, 0.8)
+	draw_line(a, b, line, maxf(2.0, _cell * 0.05))
+	draw_line(Vector2(b.x, a.y), Vector2(a.x, b.y), line, maxf(2.0, _cell * 0.05))
+
+## An unrevealed hidden piece: an obscured neutral tile with a "?" (no colour cue).
+func _draw_hidden(cell: Vector2i) -> void:
+	var gap := clampf(_cell * 0.08, 2.0, 4.0)
+	var rect := Rect2(_px(cell) + Vector2(gap, gap), Vector2(_cell - gap * 2.0, _cell - gap * 2.0))
+	_round(rect, TD35Theme.FRAME, int(clampf(_cell * 0.16, 6.0, 14.0)))
+	var font := ThemeDB.fallback_font
+	var fs := int(_cell * 0.5)
+	var w := font.get_string_size("?", HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
+	draw_string(font, _px(cell) + Vector2(_cell * 0.5 - w * 0.5, _cell * 0.68), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.9))
 
 func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) -> void:
 	if _dragging and id == _drag_id and alpha > 0.99:
@@ -416,6 +487,9 @@ func _piece_at(cell: Vector2i) -> String:
 	var geometry := PuzzleEngine._geometry(definition)
 	for id in geometry.keys():
 		if not bool(state.pieces[id]["active"]):
+			continue
+		# A hidden piece cannot be grabbed until it is revealed (engine also rejects it).
+		if not bool(state.pieces[id].get("revealed", true)):
 			continue
 		var origin: Vector2i = state.pieces[id]["pos"]
 		for offset in geometry[id]["offsets"]:
