@@ -1,5 +1,25 @@
+class_name PilotGame
 extends Control
 ## Developer route for the 15 v2 pilot levels. Does not write progress.save.
+## Subclasses (e.g. AdvancedQA) override the level source + title + save hooks below to
+## reuse this screen for a different, campaign-separate level set.
+
+## Level source + save hooks — overridable so a QA screen can point at another set without
+## touching campaign progress.
+func _level_paths() -> Array[String]:
+	return PilotCatalog.list_paths()
+
+func _read_level(path: String) -> Dictionary:
+	return PilotCatalog.read_definition(path)
+
+func _saved_index() -> int:
+	return PilotCatalog.load_index()
+
+func _save_index(index: int) -> void:
+	PilotCatalog.save_index(index)
+
+func _screen_title(index: int) -> String:
+	return "Level %d" % (index + 1)
 
 var _paths: Array[String] = []
 var _index := 0
@@ -14,8 +34,8 @@ var _prompt_row: Control
 var _lock_left := 0.0
 
 func _ready() -> void:
-	_paths = PilotCatalog.list_paths()
-	_index = clampi(PilotCatalog.load_index(), 0, maxi(0, _paths.size() - 1))
+	_paths = _level_paths()
+	_index = clampi(_saved_index(), 0, maxi(0, _paths.size() - 1))
 	_build()
 	if not _paths.is_empty():
 		_load(_index)
@@ -95,8 +115,8 @@ func _load(index: int) -> void:
 	if index < 0 or index >= _paths.size():
 		return
 	_index = index
-	PilotCatalog.save_index(index)
-	var raw := PilotCatalog.read_definition(_paths[index])
+	_save_index(index)
+	var raw := _read_level(_paths[index])
 	var loaded := LevelLoader.load_definition(raw)
 	if not bool(loaded["ok"]):
 		_title.text = "Invalid pilot level"
@@ -109,7 +129,7 @@ func _load(index: int) -> void:
 	_prompt_row.visible = true
 	var metrics: Dictionary = _definition.get("authored_metrics", {})
 	_prompt.text = str(metrics.get("prompt", ""))
-	_title.text = "Level %d" % (index + 1)
+	_title.text = _screen_title(index)
 	_refresh_status()
 
 func _refresh_status() -> void:
@@ -137,7 +157,9 @@ func _on_commit(action: PuzzleAction) -> void:
 	if leaving:
 		_board.note_exit(action.piece_id, action.direction)
 	_board.show_state(_definition, _session.state, leaving)
-	_lock_left = 0.34 if leaving else 0.18
+	# Animate the committed mechanic transitions (unlock / counter / reveal / blocker).
+	_board.queue_events(applied.get("events", []))
+	_lock_left = maxf(0.34 if leaving else 0.18, _board.FLASH_TIME)
 	if _session.is_won():
 		_win_layer.visible = true
 	_refresh_status()
@@ -145,14 +167,21 @@ func _on_commit(action: PuzzleAction) -> void:
 func _process(delta: float) -> void:
 	if _lock_left <= 0.0 or _session == null:
 		return
+	# Stay locked until both the move settle and any transition flashes finish, so no
+	# second action can be committed while the board is animating.
 	_lock_left -= delta
-	if _lock_left <= 0.0:
+	if _lock_left <= 0.0 and not _board.flashes_active():
 		_session.input_locked = false
 		_board.set_locked(false)
 
 func _on_undo() -> void:
 	if _session == null or not _session.undo():
 		return
+	# Cancel any pending animation and redraw the authoritative restored state.
+	_board.reconcile()
+	_lock_left = 0.0
+	_session.input_locked = false
+	_board.set_locked(false)
 	_win_layer.visible = false
 	_board.show_state(_definition, _session.state)
 	_refresh_status()
@@ -161,6 +190,9 @@ func _on_restart() -> void:
 	if _session == null:
 		return
 	_session.restart()
+	_board.reconcile()
+	_lock_left = 0.0
+	_board.set_locked(false)
 	_win_layer.visible = false
 	_board.show_state(_definition, _session.state)
 	_refresh_status()

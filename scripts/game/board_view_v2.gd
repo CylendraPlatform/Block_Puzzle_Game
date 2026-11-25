@@ -31,6 +31,11 @@ var _drag_px := 0.0
 var _pointer := Vector2.ZERO
 var _dragging := false
 var _exits: Array[Dictionary] = []
+## Presentation queue: committed engine events are played as brief, ordered flashes.
+## The queue never changes PuzzleState; it only animates transitions the engine already
+## committed. reconcile() drops it so Undo/Restart redraw the authoritative state.
+var _flashes: Array[Dictionary] = []
+const FLASH_TIME := 0.30
 
 func note_exit(piece_id: String, direction: String) -> void:
 	if state == null or not state.pieces.has(piece_id):
@@ -55,6 +60,58 @@ func set_locked(locked: bool) -> void:
 	if locked:
 		_dragging = false
 		_drag_id = ""
+
+## Enqueue committed engine events (in their emitted, priority-sorted order) as ordered
+## transition flashes: gate unlock / counter change, piece reveal, blocker removal.
+func queue_events(events: Array) -> void:
+	for event in PuzzleEvent.sort_stable(events):
+		var kind := str(event.type)
+		if kind != PuzzleEvent.GATE_UNLOCKED and kind != PuzzleEvent.GATE_COUNTER_CHANGED \
+				and kind != PuzzleEvent.PIECE_REVEALED and kind != PuzzleEvent.BLOCKER_REMOVED:
+			continue
+		var pos = _event_center(kind, str(event.subject_id))
+		if pos != null:
+			_flashes.append({"pos": pos, "t": 0.0})
+	queue_redraw()
+
+## True while transition flashes are still playing (used to hold the input lock).
+func flashes_active() -> bool:
+	return not _flashes.is_empty()
+
+## Drop all transient presentation (flashes, exit slides) so the next redraw is the
+## fully-settled authoritative state. Used by Undo / Restart and any interruption.
+func reconcile() -> void:
+	_flashes.clear()
+	_exits.clear()
+	queue_redraw()
+
+func _event_center(kind: String, subject: String):
+	var board: Dictionary = definition.get("board", {})
+	var cols := int(board.get("cols", 1))
+	var rows := int(board.get("rows", 1))
+	if kind == PuzzleEvent.GATE_UNLOCKED or kind == PuzzleEvent.GATE_COUNTER_CHANGED:
+		for gate in definition.get("gates", []):
+			if typeof(gate) == TYPE_DICTIONARY and str(gate.get("id", "")) == subject:
+				var lo := int(gate.get("lo", 0))
+				var hi := int(gate.get("hi", lo))
+				var mid := (float(lo + hi) + 1.0) * 0.5 * _cell
+				match str(gate.get("side", "")):
+					"left": return _origin + Vector2(0.0, mid)
+					"right": return _origin + Vector2(cols * _cell, mid)
+					"top": return _origin + Vector2(mid, 0.0)
+					"bottom": return _origin + Vector2(mid, rows * _cell)
+				return null
+		return null
+	if kind == PuzzleEvent.PIECE_REVEALED and state != null and state.pieces.has(subject):
+		return _px(state.pieces[subject]["pos"]) + Vector2(_cell, _cell) * 0.5
+	if kind == PuzzleEvent.BLOCKER_REMOVED:
+		for blocker in definition.get("blockers", []):
+			if typeof(blocker) == TYPE_DICTIONARY and str(blocker.get("id", "")) == subject:
+				var c = blocker.get("cell", null)
+				if typeof(c) == TYPE_ARRAY and c.size() == 2:
+					return _px(Vector2i(int(c[0]), int(c[1]))) + Vector2(_cell, _cell) * 0.5
+		return null
+	return null
 
 static func choose_action(actions: Array, origin: Vector2i, direction: String, steps: int) -> PuzzleAction:
 	if steps <= 0 or direction == "":
@@ -98,6 +155,14 @@ func _process(delta: float) -> void:
 		if float(item["t"]) < 0.34:
 			still.append(item)
 	_exits = still
+	if not _flashes.is_empty():
+		var live: Array[Dictionary] = []
+		for flash in _flashes:
+			flash["t"] = float(flash["t"]) + delta
+			if float(flash["t"]) < FLASH_TIME:
+				live.append(flash)
+		_flashes = live
+		queue_redraw()
 	if state == null:
 		return
 	_layout()
@@ -194,6 +259,11 @@ func _draw() -> void:
 		var from: Vector2 = item["from"]
 		var slide := from + Vector2(_dir(str(item["dir"]))) * _cell * (0.35 + travel * 1.2)
 		_draw_piece(exit_id, geometry[exit_id], slide, 1.0 - travel)
+	# Transition flashes: an expanding, fading ring at each committed event's location.
+	for flash in _flashes:
+		var ft := clampf(float(flash["t"]) / FLASH_TIME, 0.0, 1.0)
+		var radius := _cell * (0.2 + ft * 0.5)
+		draw_arc(flash["pos"], radius, 0.0, TAU, 24, Color(1, 1, 1, (1.0 - ft) * 0.9), maxf(2.0, _cell * 0.07))
 
 func _draw_preview(geometry: Dictionary) -> void:
 	if not _dragging or _axis == "" or _drag_id == "" or not geometry.has(_drag_id):
