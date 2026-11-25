@@ -21,7 +21,7 @@ Godot 4.7.2, Windows, 2026-11-25 (Asia/Baghdad):
 | `--headless --script res://test/test_v2_session.gd` | 0 |
 | `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
 
-Debug APK `build/android/BlockPuzzle-TD36-QA-debug.apk`, 63,082,110 bytes, SHA-256 `614FB3E1A569F669CEB385E3B564793CCE795F26D517E1F2306478F6F93DF08E`. `apksigner` verified v2 and v3. Pack contains 16 `levels_v2/td36/*.json` files. Not in git.
+Debug APK published as prerelease `td36-qa-debug` at commit `467b2d7`: https://github.com/CylendraPlatform/Block_Puzzle_Game/releases/tag/td36-qa-debug . File `BlockPuzzle-TD36-QA-debug.apk`, 63,082,110 bytes. Local SHA-256 `614FB3E1A569F669CEB385E3B564793CCE795F26D517E1F2306478F6F93DF08E`. `apksigner` verified v2 and v3. Pack contains 16 `levels_v2/td36/*.json` files. Not in git. The same release holds 16 desktop start-position PNGs.
 
 Desktop PNGs: `build/qa/td36/` (gitignored). P2 not started. Human difficulty unmeasured. Do not merge PR #6, #7, or #8.
 
