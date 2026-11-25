@@ -62,7 +62,11 @@ func _initialize() -> void:
 			print("%s  REPLAY-FAIL  len=%s" % [id, str(res["solution_length"])])
 			fails += 1
 			continue
-		print("%s  SOLVED  len=%s  explored=%s  cap=%d  time=%.1fms  replay=OK  %s" % [id, str(res["solution_length"]), str(res["explored_states"]), CAP, ms, variety])
+		var explored := maxi(1, int(res["explored_states"]))
+		var us_per_state := float(Time.get_ticks_usec() - t0) / float(explored)
+		var legal_ms := float(SolverV2.profile_legal_us) / 1000.0
+		var transition_ms := float(SolverV2.profile_transition_us) / 1000.0
+		print("%s  SOLVED  len=%s  explored=%s  cap=%d  time=%.1fms  (%.0f us/state; legal=%.0fms transition=%.0fms)  replay=OK  %s" % [id, str(res["solution_length"]), str(res["explored_states"]), CAP, ms, us_per_state, legal_ms, transition_ms, variety])
 	print("== done: %d failure(s) ==" % fails)
 	quit(fails)
 

@@ -119,10 +119,13 @@ static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dicti
 		var exit_color := _piece_color(definition, matched.piece_id)
 		next.event_counters[exit_color] = int(next.event_counters.get(exit_color, 0)) + 1
 	next.move_number += 1
-	_update_gate_phases(next, definition)
-	var resolved := _resolve(next, definition, events)
-	if not bool(resolved["ok"]):
-		return _reject("CASCADE_LIMIT", str(resolved["message"]))
+	# Mechanic-free levels have no world reaction, so the solver (which sets context.simple)
+	# skips the resolution loop and phase update. Untrusted play always runs them.
+	if context == null or not context.simple:
+		_update_gate_phases(next, definition)
+		var resolved := _resolve(next, definition, events)
+		if not bool(resolved["ok"]):
+			return _reject("CASCADE_LIMIT", str(resolved["message"]))
 	return {"ok": true, "next_state": next, "events": events, "error": {}}
 
 ## Deterministic post-action world reaction: open gates whose condition now holds
@@ -168,6 +171,22 @@ static func _resolve(next: PuzzleState, definition: Dictionary, events: Array) -
 		if not changed:
 			return {"ok": true, "message": ""}
 	return {"ok": false, "message": "Cascade exceeded %d steps." % MAX_CASCADE}
+
+## A level is simple when nothing reacts after a move: no triggers, blockers, hidden
+## pieces, or lockable / counter / color-switching gates. The resolution loop and phase
+## update are then no-ops. Used only to let the solver skip that work safely.
+static func is_simple(definition: Dictionary) -> bool:
+	if not (definition.get("triggers", []) as Array).is_empty():
+		return false
+	if not (definition.get("blockers", []) as Array).is_empty():
+		return false
+	for piece in definition.get("pieces", []):
+		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("reveal", "visible")) == "hidden":
+			return false
+	for gate in definition.get("gates", []):
+		if typeof(gate) == TYPE_DICTIONARY and (gate.has("unlock_when") or gate.has("counter") or gate.has("color_schedule")):
+			return false
+	return true
 
 static func _piece_color(definition: Dictionary, piece_id: String) -> String:
 	for piece in definition.get("pieces", []):
