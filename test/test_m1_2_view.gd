@@ -45,5 +45,12 @@ func _initialize() -> void:
 	_ok(view._piece_at(Vector2i(2, 2)) == "green", "revealed piece becomes grabbable")
 
 	view.queue_free()
+
+	# Compile-smoke the QA screen scripts + catalog (headless can't render, but this catches
+	# syntax/contract errors) and confirm the advanced QA catalog is campaign-separate.
+	_ok(load("res://scripts/game/pilot_game.gd") != null, "PilotGame compiles")
+	_ok(load("res://scripts/game/advanced_qa.gd") != null, "AdvancedQA compiles")
+	_ok(AdvancedCatalog.list_paths().size() == 3, "advanced QA catalog lists the 3 advanced levels")
+
 	print("== done: %d failure(s) ==" % _fails)
 	quit(_fails)
