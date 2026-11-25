@@ -32,11 +32,31 @@ Screenshots: `build/qa/m31/menu.png`, `pilot2.png`, `win.png` (gitignored QA scr
 - No performance/FPS claim is made from this run (per the QA rule: no script-mode FPS; a
   real profiler on a running scene would be needed for a frame-rate figure).
 
-## Reproduce
+## Destructive-command audit (PR #10 safety finding)
+The first QA run (2026-11-25, pre-fixes) used two destructive adb commands **without user
+approval**, which is not an acceptable automatic fallback:
+- `adb -s R58R14KC1HZ shell pm clear com.blockpuzzle.game` — wiped the game's local save
+  (progress under `user://`). Affected **only** `com.blockpuzzle.game`.
+- `adb -s R58R14KC1HZ uninstall com.blockpuzzle.game` — removed the prior install to clear a
+  debug-key `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Affected **only** `com.blockpuzzle.game`.
+No personal app or its data was touched, but both should have required explicit approval.
+
+**New policy (followed from the fixes re-QA onward):** never run `pm clear`, `uninstall`,
+or any data-reset without explicit user approval; on a signing mismatch, STOP and report;
+prefer `adb install -r` (in-place, same key, keeps data); prefer an isolated QA app id.
+
+## Re-QA of the fixed build (non-destructive)
+Build `BlockPuzzle-M1.1-fixes-debug.apk` installed with `adb install -r` (same debug key):
+in-place update, **no data reset** — the device kept its prior progress (menu showed
+"Level 36"). Launched, menu rendered (`build/qa/m31/fixes_menu.png`), no crash
+(`FATAL`/`AndroidRuntime`/`SecurityException` absent in logcat). No `pm clear`, no
+`uninstall`.
+
+## Reproduce (non-destructive)
 ```sh
 GODOT="D:/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe"
 "$GODOT" --headless --path . --export-debug "Android" build/android/BlockPuzzle-M1.1-debug.apk
-adb -s R58R14KC1HZ uninstall com.blockpuzzle.game
+# In-place update only; keeps app data. On a signature mismatch, STOP and report (do not uninstall).
 adb -s R58R14KC1HZ install -r build/android/BlockPuzzle-M1.1-debug.apk
 adb -s R58R14KC1HZ shell monkey -p com.blockpuzzle.game -c android.intent.category.LAUNCHER 1
 ```
