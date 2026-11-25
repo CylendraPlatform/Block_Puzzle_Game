@@ -10,7 +10,6 @@ const SOLVED := "SOLVED"
 const UNSOLVABLE := "UNSOLVABLE"
 const UNKNOWN_CAP_REACHED := "UNKNOWN_CAP_REACHED"
 const INVALID_LEVEL := "INVALID_LEVEL"
-const MAX_CASCADE := 32
 const DIRECTIONS := ["left", "right", "up", "down"]
 
 static func transition(state: PuzzleState, action: PuzzleAction, definition: Dictionary, context: PuzzleSearchContext = null) -> Dictionary:
@@ -122,7 +121,6 @@ static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dicti
 	# Mechanic-free levels have no world reaction, so the solver (which sets context.simple)
 	# skips the resolution loop and phase update. Untrusted play always runs them.
 	if context == null or not context.simple:
-		_update_gate_phases(next, definition)
 		var resolved := _resolve(next, definition, events)
 		if not bool(resolved["ok"]):
 			return _reject("CASCADE_LIMIT", str(resolved["message"]))
@@ -132,26 +130,39 @@ static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dicti
 ## and fire one-shot triggers, cascading until the state settles. Sorted-id order
 ## keeps it reproducible; MAX_CASCADE bounds it; a failed effect rolls the action back.
 static func _resolve(next: PuzzleState, definition: Dictionary, events: Array) -> Dictionary:
+	# One scan over the gates: cache id -> def, and keep each color-switching gate's
+	# phase in sync with move_number (period = schedule length). This replaces the
+	# separate phase-update pass and the per-pass _gate_by_id lookups.
+	var gate_defs := {}
 	var gate_ids: Array = []
 	for gate in definition.get("gates", []):
-		if typeof(gate) == TYPE_DICTIONARY:
-			gate_ids.append(str(gate.get("id", "")))
+		if typeof(gate) != TYPE_DICTIONARY:
+			continue
+		var scan_id := str(gate.get("id", ""))
+		gate_defs[scan_id] = gate
+		gate_ids.append(scan_id)
+		if gate.has("color_schedule") and next.gates.has(scan_id):
+			next.gates[scan_id]["phase"] = next.move_number % gate["color_schedule"].size()
 	gate_ids.sort()
 	var triggers: Array = []
 	for trigger in definition.get("triggers", []):
 		if typeof(trigger) == TYPE_DICTIONARY:
 			triggers.append(trigger)
 	triggers.sort_custom(func(left, right): return str(left.get("id", "")) < str(right.get("id", "")))
-	for _pass in MAX_CASCADE:
+	# Effects and gate-opens are monotonic and triggers are one-shot, so the cascade
+	# makes at most (triggers + gates) units of progress; the +1 is the final no-change
+	# settling pass. Scaling the bound to the level means a long-but-finite chain is never
+	# falsely rejected, while a non-monotonic (buggy) cascade still terminates and reports.
+	var max_passes := triggers.size() + gate_ids.size() + 1
+	for _pass in max_passes:
 		var changed := false
 		for gid in gate_ids:
 			var gate_state: Dictionary = next.gates[gid]
 			if str(gate_state["mode"]) != "LOCKED":
 				continue
-			var gate_def := _gate_by_id(definition, gid)
-			var kind := GateRules.classify(gate_def)
+			var kind := GateRules.classify(gate_defs[gid])
 			var opened := false
-			if kind == GateRules.UNLOCK_WHEN and Conditions.satisfied(gate_def["unlock_when"], next):
+			if kind == GateRules.UNLOCK_WHEN and Conditions.satisfied(gate_defs[gid]["unlock_when"], next):
 				opened = true
 			elif kind == GateRules.COUNTER and int(gate_state["counter_remaining"]) == 0:
 				opened = true
@@ -170,7 +181,7 @@ static func _resolve(next: PuzzleState, definition: Dictionary, events: Array) -
 				changed = true
 		if not changed:
 			return {"ok": true, "message": ""}
-	return {"ok": false, "message": "Cascade exceeded %d steps." % MAX_CASCADE}
+	return {"ok": false, "message": "Cascade exceeded %d steps." % max_passes}
 
 ## A level is simple when nothing reacts after a move: no triggers, blockers, hidden
 ## pieces, or lockable / counter / color-switching gates. The resolution loop and phase
@@ -193,16 +204,6 @@ static func _piece_color(definition: Dictionary, piece_id: String) -> String:
 		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("id", "")) == piece_id:
 			return str(piece.get("color", ""))
 	return ""
-
-## Keep each color-switching gate's phase equal to move_number % period, so the gate's
-## accepted color (and the search key) advance one step per committed action.
-static func _update_gate_phases(state: PuzzleState, definition: Dictionary) -> void:
-	for gate in definition.get("gates", []):
-		if typeof(gate) != TYPE_DICTIONARY or not gate.has("color_schedule"):
-			continue
-		var gid := str(gate.get("id", ""))
-		if state.gates.has(gid):
-			state.gates[gid]["phase"] = state.move_number % gate["color_schedule"].size()
 
 static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geometry: Dictionary, id: String, actions: Array, context: PuzzleSearchContext) -> void:
 	var origin: Vector2i = state.pieces[id]["pos"]
@@ -410,7 +411,8 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 		var mode := str(gate_state.get("mode", ""))
 		if mode != "OPEN" and mode != "LOCKED":
 			return "gate-mode"
-		if GateRules.classify(_gate_by_id(definition, gate_id)) == GateRules.STATIC_OPEN and mode != "OPEN":
+		var gate_def := _gate_by_id(definition, gate_id)
+		if GateRules.classify(gate_def) == GateRules.STATIC_OPEN and mode != "OPEN":
 			return "gate-mode"
 		if typeof(gate_state.get("counter_remaining", null)) != TYPE_INT:
 			return "gate-counter"
@@ -421,9 +423,8 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 				return "gate-counter"
 		elif gate_counter < 0 or gate_counter > init_gate_counter:
 			return "gate-counter"
-		var switching_def := _gate_by_id(definition, gate_id)
-		if GateRules.is_color_switching(switching_def):
-			if int(gate_state.get("phase", -1)) != state.move_number % switching_def["color_schedule"].size():
+		if GateRules.is_color_switching(gate_def):
+			if int(gate_state.get("phase", -1)) != state.move_number % gate_def["color_schedule"].size():
 				return "gate-phase"
 	# Blockers: active may be true or false; counter stays within [0, initial];
 	# an active blocker may not share a cell with an active piece.
