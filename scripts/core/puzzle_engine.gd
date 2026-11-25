@@ -119,6 +119,7 @@ static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dicti
 		var exit_color := _piece_color(definition, matched.piece_id)
 		next.event_counters[exit_color] = int(next.event_counters.get(exit_color, 0)) + 1
 	next.move_number += 1
+	_update_gate_phases(next, definition)
 	var resolved := _resolve(next, definition, events)
 	if not bool(resolved["ok"]):
 		return _reject("CASCADE_LIMIT", str(resolved["message"]))
@@ -173,6 +174,16 @@ static func _piece_color(definition: Dictionary, piece_id: String) -> String:
 		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("id", "")) == piece_id:
 			return str(piece.get("color", ""))
 	return ""
+
+## Keep each color-switching gate's phase equal to move_number % period, so the gate's
+## accepted color (and the search key) advance one step per committed action.
+static func _update_gate_phases(state: PuzzleState, definition: Dictionary) -> void:
+	for gate in definition.get("gates", []):
+		if typeof(gate) != TYPE_DICTIONARY or not gate.has("color_schedule"):
+			continue
+		var gid := str(gate.get("id", ""))
+		if state.gates.has(gid):
+			state.gates[gid]["phase"] = state.move_number % gate["color_schedule"].size()
 
 static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geometry: Dictionary, id: String, actions: Array, context: PuzzleSearchContext) -> void:
 	var origin: Vector2i = state.pieces[id]["pos"]
@@ -261,9 +272,13 @@ static func _matching_gates(definition: Dictionary, state: PuzzleState, color: S
 		var gate_id := str(gate.get("id", ""))
 		if not state.gates.has(gate_id) or str(state.gates[gate_id]["mode"]) != "OPEN":
 			continue
-		var accepts: Array = gate.get("accept", [])
-		if not accepts.has(color):
-			continue
+		if GateRules.is_color_switching(gate):
+			if GateRules.scheduled_color(gate, int(state.gates[gate_id].get("phase", 0))) != color:
+				continue
+		else:
+			var accepts: Array = gate.get("accept", [])
+			if not accepts.has(color):
+				continue
 		var lo := int(gate.get("lo", 0))
 		var hi := int(gate.get("hi", -1))
 		if perp_min < lo or perp_max > hi:
@@ -387,6 +402,10 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 				return "gate-counter"
 		elif gate_counter < 0 or gate_counter > init_gate_counter:
 			return "gate-counter"
+		var switching_def := _gate_by_id(definition, gate_id)
+		if GateRules.is_color_switching(switching_def):
+			if int(gate_state.get("phase", -1)) != state.move_number % switching_def["color_schedule"].size():
+				return "gate-phase"
 	# Blockers: active may be true or false; counter stays within [0, initial];
 	# an active blocker may not share a cell with an active piece.
 	var expected_blockers := _expected_blockers(definition)

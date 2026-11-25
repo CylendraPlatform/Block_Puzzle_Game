@@ -14,7 +14,7 @@ const TOP_LEVEL := ["schema_version", "id", "name", "chapter", "board", "rules",
 const BOARD_FIELDS := ["cols", "rows", "walls"]
 const RULE_FIELDS := ["rotation", "timer_seconds"]
 const PIECE_FIELDS := ["id", "cells", "pos", "color", "required", "reveal"]
-const GATE_FIELDS := ["id", "side", "lo", "hi", "accept", "initial_state", "unlock_when", "counter"]
+const GATE_FIELDS := ["id", "side", "lo", "hi", "accept", "initial_state", "unlock_when", "counter", "color_schedule"]
 const TRIGGER_FIELDS := ["id", "when", "effect"]
 const BLOCKER_FIELDS := ["id", "cell", "counter_remaining"]
 const COUNTER_FIELDS := ["remaining"]
@@ -270,6 +270,36 @@ static func _check_gate(gate, index: int, cols: int, rows: int, ids: Dictionary,
 		if _check_counter(gate["counter"], path + ".counter", diags) and not id.is_empty():
 			counters[id] = true
 	GateRules.validate_config(gate, path, diags)
+	if gate.has("color_schedule"):
+		_check_color_schedule(gate, path, accept_colors, diags)
+
+## A color-switching gate lists an accepted color per phase; phase advances by one per
+## committed action (period = schedule length). It must be an open gate, hold a non-empty
+## list of known colors, and its color set must equal `accept` (kept for references/tooling).
+static func _check_color_schedule(gate: Dictionary, path: String, accept_colors: Array, diags: Array) -> void:
+	var schedule = gate["color_schedule"]
+	if typeof(schedule) != TYPE_ARRAY or schedule.is_empty():
+		diags.append(_diag("INVALID_GATE", path + ".color_schedule", "color_schedule must be a non-empty array of colors."))
+		return
+	if str(gate.get("initial_state", "open")) != "open":
+		diags.append(_diag("GATE_STATE_CONFLICT", path + ".color_schedule", "A color-switching gate must be open."))
+	var schedule_set := {}
+	for color in schedule:
+		if typeof(color) != TYPE_STRING or not COLORS.has(color):
+			diags.append(_diag("INVALID_COLOR", path + ".color_schedule", "color_schedule has an unknown color."))
+			return
+		schedule_set[color] = true
+	var accept_set := {}
+	for color in accept_colors:
+		accept_set[color] = true
+	for color in schedule_set.keys():
+		if not accept_set.has(color):
+			diags.append(_diag("INVALID_GATE", path + ".color_schedule", "color_schedule colors must match the accept list."))
+			return
+	for color in accept_set.keys():
+		if not schedule_set.has(color):
+			diags.append(_diag("INVALID_GATE", path + ".color_schedule", "accept must list exactly the color_schedule colors."))
+			return
 
 static func _check_trigger_list(data: Dictionary, ids: Dictionary, diags: Array) -> void:
 	if not data.has("triggers"):

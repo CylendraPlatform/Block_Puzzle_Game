@@ -46,3 +46,12 @@ static func validate_config(gate: Dictionary, path: String, diags: Array) -> voi
 
 static func _diag(path: String, message: String) -> Dictionary:
 	return {"code": "GATE_STATE_CONFLICT", "path": path, "message": message}
+
+## A color-switching gate accepts one color per phase (period = schedule length).
+static func is_color_switching(gate: Dictionary) -> bool:
+	return gate.has("color_schedule")
+
+## The accepted color at a given phase. phase advances one per committed action.
+static func scheduled_color(gate: Dictionary, phase: int) -> String:
+	var schedule: Array = gate["color_schedule"]
+	return str(schedule[phase % schedule.size()])
