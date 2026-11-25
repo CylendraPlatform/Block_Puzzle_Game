@@ -33,6 +33,8 @@ static func transition(state: PuzzleState, action: PuzzleAction, definition: Dic
 	var piece: Dictionary = state.pieces[action.piece_id]
 	if typeof(piece.get("active", null)) != TYPE_BOOL or not piece["active"]:
 		return _reject("ILLEGAL_ACTION", "Piece '%s' is inactive." % action.piece_id)
+	if not bool(piece.get("revealed", true)):
+		return _reject("ILLEGAL_ACTION", "Piece '%s' is hidden and cannot move." % action.piece_id)
 	var matched: PuzzleAction = action if context != null and context.owns(action, state_key) else null
 	if matched == null:
 		var legal := legal_actions(definition, state, action.piece_id, context)
@@ -59,6 +61,8 @@ static func legal_actions(definition: Dictionary, state: PuzzleState, piece_id: 
 		if piece_id != "" and id != piece_id:
 			continue
 		if typeof(state.pieces[id].get("active", null)) != TYPE_BOOL or not state.pieces[id]["active"]:
+			continue
+		if not bool(state.pieces[id].get("revealed", true)):
 			continue
 		_actions_for_piece(definition, state, geometry, id, actions, context)
 	actions.sort_custom(func(left, right):
@@ -112,8 +116,63 @@ static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dicti
 		if alignment != origin:
 			events.append(PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, matched.piece_id, 0))
 		events.append(PuzzleEvent.make(PuzzleEvent.PIECE_EXITED, matched.piece_id, 1))
+		var exit_color := _piece_color(definition, matched.piece_id)
+		next.event_counters[exit_color] = int(next.event_counters.get(exit_color, 0)) + 1
 	next.move_number += 1
+	var resolved := _resolve(next, definition, events)
+	if not bool(resolved["ok"]):
+		return _reject("CASCADE_LIMIT", str(resolved["message"]))
 	return {"ok": true, "next_state": next, "events": events, "error": {}}
+
+## Deterministic post-action world reaction: open gates whose condition now holds
+## and fire one-shot triggers, cascading until the state settles. Sorted-id order
+## keeps it reproducible; MAX_CASCADE bounds it; a failed effect rolls the action back.
+static func _resolve(next: PuzzleState, definition: Dictionary, events: Array) -> Dictionary:
+	var gate_ids: Array = []
+	for gate in definition.get("gates", []):
+		if typeof(gate) == TYPE_DICTIONARY:
+			gate_ids.append(str(gate.get("id", "")))
+	gate_ids.sort()
+	var triggers: Array = []
+	for trigger in definition.get("triggers", []):
+		if typeof(trigger) == TYPE_DICTIONARY:
+			triggers.append(trigger)
+	triggers.sort_custom(func(left, right): return str(left.get("id", "")) < str(right.get("id", "")))
+	for _pass in MAX_CASCADE:
+		var changed := false
+		for gid in gate_ids:
+			var gate_state: Dictionary = next.gates[gid]
+			if str(gate_state["mode"]) != "LOCKED":
+				continue
+			var gate_def := _gate_by_id(definition, gid)
+			var kind := GateRules.classify(gate_def)
+			var opened := false
+			if kind == GateRules.UNLOCK_WHEN and Conditions.satisfied(gate_def["unlock_when"], next):
+				opened = true
+			elif kind == GateRules.COUNTER and int(gate_state["counter_remaining"]) == 0:
+				opened = true
+			if opened:
+				gate_state["mode"] = "OPEN"
+				events.append(PuzzleEvent.make(PuzzleEvent.GATE_UNLOCKED, gid, 2))
+				changed = true
+		for trigger in triggers:
+			var tid := str(trigger.get("id", ""))
+			if bool(next.trigger_fired.get(tid, false)):
+				continue
+			if Conditions.satisfied(trigger.get("when", {}), next):
+				if not Effects.apply(trigger.get("effect", {}), next, events):
+					return {"ok": false, "message": "Effect of trigger '%s' failed." % tid}
+				next.trigger_fired[tid] = true
+				changed = true
+		if not changed:
+			return {"ok": true, "message": ""}
+	return {"ok": false, "message": "Cascade exceeded %d steps." % MAX_CASCADE}
+
+static func _piece_color(definition: Dictionary, piece_id: String) -> String:
+	for piece in definition.get("pieces", []):
+		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("id", "")) == piece_id:
+			return str(piece.get("color", ""))
+	return ""
 
 static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geometry: Dictionary, id: String, actions: Array, context: PuzzleSearchContext) -> void:
 	var origin: Vector2i = state.pieces[id]["pos"]
@@ -224,6 +283,16 @@ static func _occupied(definition: Dictionary, state: PuzzleState, exclude_id: St
 		var origin: Vector2i = state.pieces[id]["pos"]
 		for offset in geometry[id]["offsets"]:
 			occupied[origin + offset] = true
+	# Active blockers occupy their single cell until removed.
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var bid := str(blocker.get("id", ""))
+		if not state.blockers.has(bid) or not bool(state.blockers[bid]["active"]):
+			continue
+		var cell = _pair(blocker.get("cell", null))
+		if cell != null:
+			occupied[cell] = true
 	return occupied
 
 static func _geometry(definition: Dictionary) -> Dictionary:
@@ -423,23 +492,9 @@ static func _unsupported_reason(definition: Dictionary) -> String:
 		return "Triggers, locked gates, counters, blockers, or hidden pieces are parsed only. Runtime execution is not available."
 	return ""
 
+## M1.1 implements locked/conditional gates, counters, triggers, blockers and hidden
+## pieces. Only rotation and a real-time timer stay out of scope and fail-closed.
 static func _uses_unimplemented_mechanics(definition: Dictionary) -> bool:
-	var triggers = definition.get("triggers", [])
-	if typeof(triggers) == TYPE_ARRAY and not triggers.is_empty():
-		return true
-	var blockers = definition.get("blockers", [])
-	if typeof(blockers) == TYPE_ARRAY and not blockers.is_empty():
-		return true
-	for piece in definition.get("pieces", []):
-		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("reveal", "visible")) == "hidden":
-			return true
-	for gate in definition.get("gates", []):
-		if typeof(gate) != TYPE_DICTIONARY:
-			continue
-		if str(gate.get("initial_state", "open")) == "locked":
-			return true
-		if gate.has("unlock_when") or gate.has("counter"):
-			return true
 	var rules = definition.get("rules", {})
 	if rules is Dictionary and (bool(rules.get("rotation", false)) or rules.get("timer_seconds", null) != null):
 		return true

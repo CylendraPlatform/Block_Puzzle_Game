@@ -97,11 +97,11 @@ func _rejections() -> void:
 	var locked := _level(2, 1, [], [_piece("a", "red", [[0, 0]], [1, 0], true)], [_gate("locked", "right", 0, 0, "red")])
 	locked["gates"][0]["initial_state"] = "locked"
 	var locked_result: Dictionary = PuzzleEngine.transition(PuzzleState.from_definition(locked), PuzzleAction.exit_through("a", "locked"), locked)
-	_ok(locked_result["error"]["code"] == "UNSUPPORTED_FEATURE" and locked_result["next_state"] == null, "a locked gate stays fail-closed")
+	_ok(locked_result["error"]["code"] == "INVALID_LEVEL" and locked_result["next_state"] == null, "a locked gate with no unlock source is rejected as an invalid config")
 	var hidden := _level(2, 1, [], [_piece("a", "red", [[0, 0]], [0, 0], true)], [_gate("out", "right", 0, 0, "red")])
 	hidden["pieces"][0]["reveal"] = "hidden"
 	var hidden_solve: Dictionary = SolverV2.solve(hidden, PuzzleState.from_definition(hidden), 20)
-	_ok(hidden_solve["status"] == PuzzleEngine.INVALID_LEVEL and LevelValidator.has_code(hidden_solve["diagnostics"], "UNSUPPORTED_FEATURE"), "hidden pieces are not reported as solved")
+	_ok(hidden_solve["status"] == PuzzleEngine.UNSOLVABLE, "a hidden piece with no reveal path is unsolvable, not solved")
 
 func _search() -> void:
 	var twin := _level(1, 3, [], [

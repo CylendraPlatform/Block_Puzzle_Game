@@ -81,7 +81,43 @@ static func validate_v2(data: Dictionary) -> Array:
 	_check_goals(data, diags)
 	_check_metrics(data, diags)
 	_check_references(data, ids, counters, diags)
+	_check_gate_unlock_sources(data, diags)
 	return diags
+
+## A locked gate opens via exactly one source: its own unlock_when, its own counter,
+## or an external unlock_gate trigger. An open gate must have no unlock source. This
+## pass needs the trigger list, so it runs after per-gate checks.
+static func _check_gate_unlock_sources(data: Dictionary, diags: Array) -> void:
+	var gates = data.get("gates", [])
+	if typeof(gates) != TYPE_ARRAY:
+		return
+	var unlock_targets := {}
+	var triggers = data.get("triggers", [])
+	if typeof(triggers) == TYPE_ARRAY:
+		for trigger in triggers:
+			if typeof(trigger) != TYPE_DICTIONARY:
+				continue
+			var effect = trigger.get("effect", null)
+			if typeof(effect) == TYPE_DICTIONARY and str(effect.get("type", "")) == "unlock_gate":
+				var target := str(effect.get("gate_id", ""))
+				unlock_targets[target] = int(unlock_targets.get(target, 0)) + 1
+	for i in gates.size():
+		var gate = gates[i]
+		if typeof(gate) != TYPE_DICTIONARY:
+			continue
+		var gid := str(gate.get("id", ""))
+		var path := "gates[%d]" % i
+		var has_external: bool = int(unlock_targets.get(gid, 0)) > 0
+		var self_sources := int(gate.has("unlock_when")) + int(gate.has("counter"))
+		if str(gate.get("initial_state", "open")) == "open":
+			if has_external:
+				diags.append(_diag("GATE_STATE_CONFLICT", path, "An open gate must not be the target of an unlock_gate trigger."))
+			continue
+		var total := self_sources + int(has_external)
+		if total == 0:
+			diags.append(_diag("GATE_STATE_CONFLICT", path, "A locked gate needs an unlock source (unlock_when, counter, or an unlock_gate trigger)."))
+		elif total > 1:
+			diags.append(_diag("GATE_STATE_CONFLICT", path, "A locked gate must have exactly one unlock source."))
 
 static func _check_walls(board: Dictionary, cols: int, rows: int, wall_set: Dictionary, diags: Array) -> void:
 	if not board.has("walls"):

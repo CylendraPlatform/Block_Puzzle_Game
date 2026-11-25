@@ -36,10 +36,11 @@ static func validate_config(gate: Dictionary, path: String, diags: Array) -> voi
 	var initial := str(gate.get("initial_state", "open"))
 	var has_unlock := gate.has("unlock_when")
 	var has_counter := gate.has("counter")
+	# Self-only contradictions (independent of triggers). The locked-gate "needs a
+	# source" and "exactly one source" checks live in the validator's cross-reference
+	# pass, because an external unlock_gate trigger can also be a gate's unlock source.
 	if initial == "open" and (has_unlock or has_counter):
 		diags.append(_diag(path, "An open gate must not define unlock_when or counter."))
-	elif initial == "locked" and not has_unlock and not has_counter:
-		diags.append(_diag(path, "A locked gate needs exactly one unlock mechanism (unlock_when or counter)."))
 	elif initial == "locked" and has_unlock and has_counter:
 		diags.append(_diag(path, "A locked gate must not define both unlock_when and counter."))
 
