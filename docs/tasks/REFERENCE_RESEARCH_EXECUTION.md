@@ -63,6 +63,34 @@ dependencies (not padding moves); multi-cell pieces; ≥2 colors; validated by
 `LevelValidator`; each ships with a solver test asserting status + length. A debug APK is
 produced when the mechanics runtime (M1.1) lands, per roadmap M0.2.
 
+## Built & solver-verified benchmarks (user-requested follow-up, 2026-11-25)
+Three **original, core-mechanic** benchmarks were built and verified with `SolverV2`
+(`test/solve_benchmarks.gd`, `levels_v2/benchmark/`). These use only currently-executable
+mechanics (multi-cell polyominoes, multi-color, 4 gate sides, lane-blocking dependencies)
+because the engine still fail-closes advanced mechanics — the Gatekeeper/Hidden-Hand/
+Shiftgate concepts above require the M1.1 effect runtime, which is the reviewed next phase.
+
+Runner: `test/solve_benchmarks.gd` (Godot 4.7.2 headless; cap = 200,000 states; witness
+replayed independently of the solver's internal check). All three: witness `replay=OK`,
+no `UNKNOWN_CAP_REACHED`.
+
+| Level | Name | Board | Pieces/Colors | Shapes | Solver | Len | Explored | Time | Replay |
+|-------|------|-------|---------------|--------|--------|-----|----------|------|--------|
+|`bm-001`|Switchyard Squeeze|6×6|5 / 5|I-tromino, L-tromino, 2×domino, single|SOLVED|5|9,910|41.9 s|OK|
+|`bm-002`|Three-Lane Jam|5×5|4 / 4|2×domino, 2×single|SOLVED|4|414|1.4 s|OK|
+|`bm-003`|Keyhole Yard|6×6|5 / 5|3×domino, 2×single|SOLVED|5|29,666|157.9 s|OK|
+
+Difficulty comes from **forced move ordering** (each blocker needs its own key move first)
+and polyomino geometry, not padding. High explored-state counts (esp. bm-003) show many
+dead-end orderings — nontrivial search, not a straight line.
+
+**Recorded limitation:** BFS in GDScript is slow per state (~5 ms/state: bm-003 explored
+29,666 states in ~158 s) because every transition re-checks schema/state. Within the
+200,000 cap all three resolve, but this per-state cost caps how large a level the offline
+solver can verify; a faster search context (cached geometry already exists) or raising the
+cap would be needed for denser levels. No Android APK built in this step; per roadmap M0.2
+an APK is produced once the mechanics runtime lands.
+
 ## Not done / explicitly out of scope this phase
 - No mechanic runtime implemented (engine still fail-closes advanced mechanics).
 - No benchmark levels built yet (recommendation only).
