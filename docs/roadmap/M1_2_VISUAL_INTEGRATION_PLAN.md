@@ -77,6 +77,71 @@ it is raised as a separate change against M1.1, not folded into M1.2.
 - Scope creep into engine behavior — guard: M1.2 touches only `scripts/game/` + `scripts/ui/`
   + themes/assets; any engine need is a separate M1.1 change.
 
+## Review revisions (PR #11 feedback — required before implementation)
+
+### R1. Event animation sequencing (deterministic presentation queue)
+- A single **presentation queue** holds committed engine events in the engine's emitted,
+  priority-sorted order (`PuzzleEvent.sort_stable`). One commit may emit several events
+  (unlock + counter-change + blocker-removal + reveal); they are enqueued as one ordered
+  batch and played in that fixed order, so the sequence is deterministic and reproducible.
+- **Visual state never gets ahead of animation:** the board renders the *authoritative*
+  `PuzzleState` for geometry, but gate/blocker/piece *presentation flags* (locked→open,
+  counter value shown, blocker visible, hidden→revealed, gate color) advance only as each
+  queued event is consumed. The queue is the single source of "what the player has seen so far".
+- **Interruption / fast-forward:** a fast-forward drains the queue instantly — applying every
+  pending event's end-visual immediately — which, by construction, lands exactly on the
+  authoritative `PuzzleState`. It changes no `PuzzleState`; it only skips tweens. Undo/Restart
+  trigger a fast-forward-then-reset (see R2).
+
+### R2. Interaction during transitions (input lock + reconciliation)
+- While any board-affecting animation is active, input is **locked** via the existing
+  `PuzzleSessionV2.input_locked` / `BoardViewV2.set_locked`, so a drag/tap cannot begin.
+- **No duplicate actions:** an action is committed once on drag-release; the board locks
+  immediately on commit and unlocks only when the presentation queue drains. Taps/drags during
+  the lock are ignored (not queued).
+- **Undo / Restart** cancel pending animations: they fast-forward/clear the queue, then
+  redraw from the authoritative state (`session.undo()` restores the previous snapshot;
+  `restart()` rebuilds from_definition). The view always **reconciles to the authoritative
+  state** after any interruption — a `reconcile()` that drops queued tweens and redraws the
+  current `PuzzleState` as the fully-settled picture.
+- Tests: rapid tapping, mid-animation drag attempts, interruption via Undo/Restart, and
+  repeated/rapid actions commit at most one action per intended input and never desync.
+
+### R3. Visual clarity & accessibility (not color alone)
+- **Shape + symbol, not color alone:** locked gate = lock glyph + desaturated frame;
+  blocker = a distinct hatched/obstacle tile shape; hidden piece = a "?" tile with a neutral
+  fill; color-switching gate = the current color **plus** a small cycle indicator. Each
+  mechanic is identifiable in greyscale.
+- **Counter badge legibility on 1080×2340:** a minimum badge size and font relative to the
+  cell size, with an outline/background for contrast; verified by screenshot on the M31.
+- **Contrast + hit targets:** maintain readable contrast against the board; keep piece hit
+  targets at full cell size; locked gates/blockers are non-interactive but clearly marked.
+- **Original artwork and animation only** — no reference assets; reuse the TD-3.5 token/theme
+  system and the pooled StyleBox approach.
+
+### R4. Playable on-device mechanic QA (separate from the campaign)
+- A **dedicated, clearly-marked QA entry point** (e.g. a menu button "Advanced QA" or an
+  entry under the existing dev screens) loads the advanced mechanic levels — kept **separate
+  from the production campaign** (its own catalog/scene, like `td36_qa`), with its own save
+  namespace so it never writes campaign progress.
+- On the physical M31, exercise **all five mechanics**: verify successful interaction, an
+  illegal action (e.g. attempting to move a hidden/locked piece), **Undo**, **Restart**, and a
+  **win** state for each. Capture **actual device screenshots** and relevant **logcat** runtime
+  logs. Device QA is **non-destructive**: `adb install -r` only; on a signing mismatch STOP and
+  report; never `pm clear`/`uninstall`/reset without explicit approval.
+
+### Cross-cutting requirements (restated, binding)
+- **M1.1 is the frozen gameplay authority.** No rules are duplicated inside `BoardViewV2`:
+  the view asks `PuzzleEngine.legal_actions` / commits via `PuzzleSessionV2` and renders state
+  — it never decides legality, openness, or win itself. Static visuals derive from
+  `PuzzleState`; animations derive from committed events; after any interruption the view
+  reconciles to the authoritative state.
+- **Preserve existing v1 and v2 gameplay paths** (campaign via adapter, v2 pilot) — M1.2 adds
+  rendering/QA without changing them.
+- **Run the full M1.1 regression suite** each phase; M1.2 must not change any solver outcome.
+- If an engine contract change becomes necessary, **document and review it separately** (a
+  change against the frozen M1.1), not folded into M1.2.
+
 ## Out of scope
 Monetization/analytics, new mechanics, level-content expansion beyond a small playable set,
 and the deferred solver `search_key`/`duplicate` optimization. Resume-mid-puzzle save
