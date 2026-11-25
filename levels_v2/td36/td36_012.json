@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-012",
+  "name": "Slide Then Drop",
+  "board": {"cols": 6, "rows": 5, "walls": [[0, 4]]},
+  "pieces": [
+    {"id": "blue", "color": "blue", "cells": [[1, 0], [0, 1], [1, 1], [2, 1]], "pos": [0, 0], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [3, 0], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [3, 3], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [2, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "blue_bottom", "side": "bottom", "lo": 2, "hi": 4, "accept": ["blue"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 0, "hi": 1, "accept": ["green"], "initial_state": "open"},
+    {"id": "yellow_left", "side": "left", "lo": 3, "hi": 3, "accept": ["yellow"], "initial_state": "open"},
+    {"id": "orange_right", "side": "right", "lo": 4, "hi": 4, "accept": ["orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The T's floor gate is two columns to the right.",
+    "intent": "The T starts over columns 0-2. Its gate is 2-4, so it has to slide before it can drop. The L occupies that slide."
+  }
+}

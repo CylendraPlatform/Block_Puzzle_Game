@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-009",
+  "name": "T Waits for the L",
+  "board": {"cols": 5, "rows": 5, "walls": [[4, 0]]},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[1, 0], [0, 1], [1, 1], [2, 1]], "pos": [1, 0], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [0, 2], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [2, 3], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [1, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["red"], "initial_state": "open"},
+    {"id": "blue_right", "side": "right", "lo": 2, "hi": 3, "accept": ["blue"], "initial_state": "open"},
+    {"id": "yellow_left", "side": "left", "lo": 4, "hi": 4, "accept": ["yellow"], "initial_state": "open"},
+    {"id": "orange_right", "side": "right", "lo": 4, "hi": 4, "accept": ["orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The T only fits the wide floor gate.",
+    "intent": "Yellow sits in the T drop. Orange sits on yellow's exit row."
+  }
+}

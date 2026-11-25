@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-013",
+  "name": "Stacked Skews",
+  "board": {"cols": 5, "rows": 6, "walls": [[4, 0]]},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[1, 0], [0, 1], [1, 1], [2, 1]], "pos": [1, 0], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[1, 0], [2, 0], [0, 1], [1, 1]], "pos": [1, 3], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [0, 4], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [2, 5], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["red"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 3, "hi": 4, "accept": ["green"], "initial_state": "open"},
+    {"id": "blue_right", "side": "right", "lo": 4, "hi": 5, "accept": ["blue"], "initial_state": "open"},
+    {"id": "yellow_left", "side": "left", "lo": 5, "hi": 5, "accept": ["yellow"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The T sits on an S. The S has to leave first.",
+    "intent": "A T is stacked on an S. The S uses a two-row side gate, not the floor, so the T can inherit the floor span."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-014",
+  "name": "T Meets the Post",
+  "board": {"cols": 6, "rows": 5, "walls": [[5, 0]]},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[1, 0], [0, 1], [1, 1], [2, 1]], "pos": [0, 0], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [0, 1], [0, 2], [0, 3]], "pos": [3, 0], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [0, 3], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [2, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_bottom", "side": "bottom", "lo": 2, "hi": 4, "accept": ["red"], "initial_state": "open"},
+    {"id": "blue_bottom", "side": "bottom", "lo": 3, "hi": 3, "accept": ["blue"], "initial_state": "open"},
+    {"id": "green_left", "side": "left", "lo": 3, "hi": 4, "accept": ["green"], "initial_state": "open"},
+    {"id": "yellow_right", "side": "right", "lo": 4, "hi": 4, "accept": ["yellow"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The T's floor gate sits under the tall post.",
+    "intent": "A T must slide onto columns 2-4. A vertical I-tetromino occupies column 3 and must drop through a one-column floor gate first."
+  }
+}

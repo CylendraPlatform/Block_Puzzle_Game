@@ -1,25 +1,29 @@
-# TD-3.6 — Puzzle depth & gameplay production (P0–P1)
+# TD-3.6 — Puzzle depth & gameplay production (P0–P1 corrections)
 
-**Status:** P0 instrumentation and P1 eight benchmarks implemented on `feat/td36-puzzle-depth-production` (PR #8). Not accepted. No human playtest. P2–P5 not started. Do not merge PR #6, #7, or #8.
+**Status:** P0 provisionally accepted. P1 solver validity accepted; fixture design rejected as generator seeds. Eight additional polyomino candidates are on `feat/td36-puzzle-depth-production` (PR #8) for product playtest. No human playtest. P2–P5 not started. Do not merge PR #6, #7, or #8. Do not bulk-generate.
 **Parent:** `feat/td35-premium-playful-visuals` / PR #7 (unmerged), stacked on PR #6.
 **Spec:** `docs/tasks/TD-3_6_IMPLEMENTATION.md`, `docs/v2/TD36_*.md`.
-**Proofs:** `docs/v2/TD36_P1_BENCHMARKS.md`, `docs/v2/td36_level_cards.json`, `levels_v2/td36/`.
+**Proofs:** `docs/v2/TD36_P1_BENCHMARKS.md`, `docs/v2/TD36_P1_CANDIDATES.md`, `docs/v2/td36_level_cards.json`, `levels_v2/td36/`.
 
-`PuzzleMetrics` times `SolverV2.solve` (cap 80 000 expansions), replays the witness, records branching along that path, counts shortest paths with a separate capped BFS, and scores dependencies by solving each piece alone versus with others frozen as walls. `UNKNOWN_CAP_REACHED` is not treated as unsolvable. Level JSON stays on schema 2; cards live outside the engine.
+`PuzzleMetrics` still times `SolverV2.solve` (cap 80 000). It now also labels `mechanism_family`, `interaction_pattern`, `genuine_multi_piece`, shape classes (including S/Z vs L), structural fingerprints, and pairwise similarity. `human_difficulty` is always `unmeasured`. `UNKNOWN_CAP_REACHED` is not treated as unsolvable.
 
-Eight hand-authored files in `levels_v2/td36/`. All `SOLVED` with replayed witnesses. Observed shortest lengths: 5, 6, 15, 18, 29, 22, 27, 31. Two Easy / two Medium / two Hard / two Expert *targets*. td36-005 is 29 actions (Expert hypothesis 30+; `meets_target` false). td36-008 is 31 actions with 6 pieces (length meets Expert; 8–12 pieces does not). A 4-vs-3 seven-tile siding searched to exhaustion is unsolvable; that is a mechanic/capacity limit for TD-4, not a padded Expert. `levels/`, `levels_v2/pilot/`, `user://progress.save`, and `user://pilot_v2.save` are unchanged. No public Play route.
+`td36-001`–`008` stay technical fixtures (lengths 5, 6, 15, 18, 29, 22, 27, 31). `td36-009`–`016` are connected polyomino candidates (T, S, Z, I, L, plus). Shortest lengths 5, 5, 4, 5, 6, 5, 4, 6. None is `siding_1d`. Pairwise similarity among candidates is below 0.80. Dev menu **TD-3.6 QA** uses `user://td36_qa.save` only. `levels/`, `levels_v2/pilot/`, `user://progress.save`, `user://pilot_v2.save`, and the Play route are unchanged.
 
-Godot 4.7.2, Windows, 2026-11-25:
+Godot 4.7.2, Windows, 2026-11-25 (Asia/Baghdad):
 
 | Command | Exit |
 | --- | --- |
-| `--headless --script res://test/test_td36_benchmarks.gd` | 0 (8 SOLVED, cards match, catalog 100, pilot 15) |
-| `--script res://test/test_td36_shots.gd` | 0 (8 PNGs, real renderer) |
+| `--headless --script res://test/test_td36_metrics.gd` | 0 |
+| `--headless --script res://test/test_td36_benchmarks.gd` | 0 (16 SOLVED, fixtures lengths unchanged, candidates not siding, no candidate near-duplicates, catalog 100, pilot 15, no progress.save) |
+| `--script res://test/test_td36_shots.gd` | 0 (16 PNGs, 360×800) |
+| `--script res://test/test_layout.gd` | 0 (player menu hides TD-3.6 QA; debug menu shows it in the safe area) |
 | `--headless --script res://test/test_v2_pilot.gd` | 0 (15 SOLVED) |
-| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
 | `--headless --script res://test/test_v2_session.gd` | 0 |
+| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
 
-Desktop PNGs: `build/qa/td36/` (gitignored). `test_v2_solver.gd` and `test_v2_campaign.gd` were not rerun.
+Debug APK `build/android/BlockPuzzle-TD36-QA-debug.apk`, 63,082,110 bytes, SHA-256 `614FB3E1A569F669CEB385E3B564793CCE795F26D517E1F2306478F6F93DF08E`. `apksigner` verified v2 and v3. Pack contains 16 `levels_v2/td36/*.json` files. Not in git.
+
+Desktop PNGs: `build/qa/td36/` (gitignored). P2 not started. Human difficulty unmeasured. Do not merge PR #6, #7, or #8.
 
 # TD-3.5 — Premium playful visuals
 

@@ -26,6 +26,9 @@ static func evaluate(definition: Dictionary, max_states: int = 80000) -> Diction
 	var paths := _count_shortest(definition, initial, length) if proven else {"count": 0, "complete": false, "explored": 0}
 	var dependencies := _dependencies(definition, witness) if proven else {"pieces": [], "proven": false}
 	var reach := _reachability(definition)
+	var interaction := _interaction(definition, dependencies["pieces"], witness if proven else [])
+	var family := mechanism_family(definition)
+	var fingerprint := structural_fingerprint(definition)
 	var info := Engine.get_version_info()
 	return {
 		"level_id": str(definition.get("id", "")),
@@ -47,6 +50,12 @@ static func evaluate(definition: Dictionary, max_states: int = 80000) -> Diction
 		"path_count_cap": PATH_COUNT_CAP,
 		"dependencies": dependencies["pieces"],
 		"dependency_proven": bool(dependencies["proven"]),
+		"interaction": interaction,
+		"genuine_multi_piece": bool(interaction["genuine_multi_piece"]),
+		"mechanism_family": family,
+		"structural_fingerprint": fingerprint,
+		"shape_types": fingerprint["shape_types"],
+		"human_difficulty": "unmeasured",
 		"unreachable_cells": reach["cells"],
 		"unreachable_gates": reach["gates"],
 		"diagnostics": _diagnostic_text(solved["diagnostics"]),
@@ -59,11 +68,11 @@ static func evaluate(definition: Dictionary, max_states: int = 80000) -> Diction
 	}
 
 static func csv_header() -> String:
-	return "level_id,status,shortest_proven,solution_length,explored_states,elapsed_ms,shortest_path_count,shortest_path_count_complete,branch_min,branch_max,branch_mean,dependency_proven,unreachable_cells"
+	return "level_id,status,shortest_proven,solution_length,explored_states,elapsed_ms,shortest_path_count,shortest_path_count_complete,branch_min,branch_max,branch_mean,dependency_proven,genuine_multi_piece,mechanism_family,unreachable_cells"
 
 static func csv_row(metrics: Dictionary) -> String:
 	var branching: Dictionary = metrics["branching"]
-	return "%s,%s,%s,%d,%d,%d,%d,%s,%d,%d,%.3f,%s,%d" % [
+	return "%s,%s,%s,%d,%d,%d,%d,%s,%d,%d,%.3f,%s,%s,%s,%d" % [
 		metrics["level_id"],
 		metrics["status"],
 		str(bool(metrics["shortest_proven"])).to_lower(),
@@ -76,8 +85,316 @@ static func csv_row(metrics: Dictionary) -> String:
 		int(branching["max"]),
 		float(branching["mean"]),
 		str(bool(metrics["dependency_proven"])).to_lower(),
+		str(bool(metrics["genuine_multi_piece"])).to_lower(),
+		str(metrics.get("mechanism_family", "")),
 		metrics["unreachable_cells"].size(),
 	]
+
+static func mechanism_family(definition: Dictionary) -> String:
+	var board: Dictionary = definition.get("board", {})
+	var cols := _whole(board.get("cols", 0))
+	var rows := _whole(board.get("rows", 0))
+	var walls: Array = board.get("walls", [])
+	var pieces: Array = definition.get("pieces", [])
+	var monominoes := 0
+	var bent := 0
+	for piece in pieces:
+		if typeof(piece) != TYPE_DICTIONARY:
+			continue
+		var label := classify_shape(piece.get("cells", []))
+		if label == "monomino":
+			monominoes += 1
+		if label.begins_with("L") or label.begins_with("T") or label.begins_with("S") or label.begins_with("Z") or label.begins_with("J"):
+			bent += 1
+	if rows <= 2 and monominoes == pieces.size() and pieces.size() >= 4:
+		return "siding_1d"
+	if bent == 0 and monominoes == pieces.size():
+		return "monomino_open"
+	if walls.size() >= maxi(4, (cols * rows) / 5) and bent > 0:
+		return "walled_polyomino"
+	if bent > 0:
+		return "polyomino_board"
+	return "mixed"
+
+static func classify_shape(cells) -> String:
+	var pts: Array[Vector2i] = []
+	var seen := {}
+	if typeof(cells) != TYPE_ARRAY:
+		return "custom"
+	for cell in cells:
+		var parsed := _pair(cell)
+		if parsed == Vector2i(-1, -1) or seen.has(parsed):
+			continue
+		seen[parsed] = true
+		pts.append(parsed)
+	if pts.is_empty():
+		return "custom"
+	var canon := _canonical_cells(pts)
+	var n := canon.size()
+	if n == 1:
+		return "monomino"
+	if n == 2:
+		return "domino"
+	var min_x := canon[0].x
+	var max_x := canon[0].x
+	var min_y := canon[0].y
+	var max_y := canon[0].y
+	for p in canon:
+		min_x = mini(min_x, p.x)
+		max_x = maxi(max_x, p.x)
+		min_y = mini(min_y, p.y)
+		max_y = maxi(max_y, p.y)
+	var w := max_x - min_x + 1
+	var h := max_y - min_y + 1
+	if n == 3:
+		if w == 1 or h == 1:
+			return "I-tromino"
+		return "L-tromino"
+	if n == 4:
+		if (w == 4 and h == 1) or (w == 1 and h == 4):
+			return "I-tetromino"
+		if w == 2 and h == 2:
+			return "O-tetromino"
+		var occ := {}
+		for p in canon:
+			occ[p] = true
+		var degrees := 0
+		var triple := 0
+		for p in canon:
+			var d := 0
+			for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				if occ.has(p + step):
+					d += 1
+			degrees += d
+			if d == 3:
+				triple += 1
+		if triple == 1:
+			return "T-tetromino"
+		if (w == 3 and h == 2) or (w == 2 and h == 3):
+			var empty: Array[Vector2i] = []
+			for y in h:
+				for x in w:
+					var cell := Vector2i(x, y)
+					if not occ.has(cell):
+						empty.append(cell)
+			if empty.size() == 2 and empty[0].x != empty[1].x and empty[0].y != empty[1].y:
+				if h == 3:
+					return "S-tetromino" if empty[0].x == 1 else "Z-tetromino"
+				return "S-tetromino" if empty[0].x < empty[1].x and empty[0].y < empty[1].y else "Z-tetromino"
+		return "L-tetromino"
+	return "custom-%d" % n
+
+static func structural_fingerprint(definition: Dictionary) -> Dictionary:
+	var board: Dictionary = definition.get("board", {})
+	var shapes: Array[String] = []
+	var colors := {}
+	for piece in definition.get("pieces", []):
+		if typeof(piece) != TYPE_DICTIONARY:
+			continue
+		shapes.append(classify_shape(piece.get("cells", [])))
+		colors[str(piece.get("color", ""))] = true
+	shapes.sort()
+	var gates: Array[String] = []
+	for gate in definition.get("gates", []):
+		if typeof(gate) != TYPE_DICTIONARY:
+			continue
+		var width := _whole(gate.get("hi", 0)) - _whole(gate.get("lo", 0)) + 1
+		gates.append("%s:%d" % [str(gate.get("side", "")), width])
+	gates.sort()
+	return {
+		"cols": _whole(board.get("cols", 0)),
+		"rows": _whole(board.get("rows", 0)),
+		"wall_count": board.get("walls", []).size() if typeof(board.get("walls", [])) == TYPE_ARRAY else 0,
+		"piece_count": definition.get("pieces", []).size() if typeof(definition.get("pieces", [])) == TYPE_ARRAY else 0,
+		"color_count": colors.size(),
+		"shape_types": shapes,
+		"gate_profiles": gates,
+		"family": mechanism_family(definition),
+		"pattern": interaction_pattern(definition),
+	}
+
+static func interaction_pattern(definition: Dictionary) -> String:
+	var family := mechanism_family(definition)
+	if family == "siding_1d":
+		return "siding_1d"
+	var shapes: Array[String] = []
+	var has_domino := false
+	for piece in definition.get("pieces", []):
+		if typeof(piece) != TYPE_DICTIONARY:
+			continue
+		var label := classify_shape(piece.get("cells", []))
+		shapes.append(label)
+		has_domino = has_domino or label == "domino"
+	var has_i := false
+	var has_t := false
+	var has_s := false
+	var has_z := false
+	var has_plus := false
+	var has_l := false
+	for label in shapes:
+		has_i = has_i or label.begins_with("I-")
+		has_t = has_t or label.begins_with("T-")
+		has_s = has_s or label.begins_with("S-")
+		has_z = has_z or label.begins_with("Z-")
+		has_plus = has_plus or label.begins_with("custom")
+		has_l = has_l or label.begins_with("L-")
+	var bent := 0
+	for label in shapes:
+		if label.begins_with("L") or label.begins_with("T") or label.begins_with("S") or label.begins_with("Z") or label.begins_with("custom"):
+			bent += 1
+	if has_plus:
+		return "plus_block"
+	if has_i and has_t:
+		return "bar_and_t"
+	if has_i and has_z:
+		return "bar_and_z"
+	if has_i:
+		return "bar_lane"
+	if bent >= 3:
+		return "triple_stack"
+	if has_t and has_domino:
+		return "domino_plug"
+	if has_t and has_s:
+		return "t_on_s"
+	if has_t and has_z:
+		return "t_on_z"
+	if _misaligned_floor(definition):
+		return "slide_then_drop"
+	if has_s and has_l:
+		return "s_and_l"
+	if has_z and has_l:
+		return "z_and_l"
+	if has_t and has_l:
+		return "drop_wait"
+	return family
+
+static func _misaligned_floor(definition: Dictionary) -> bool:
+	for piece in definition.get("pieces", []):
+		if typeof(piece) != TYPE_DICTIONARY:
+			continue
+		var label := classify_shape(piece.get("cells", []))
+		if not (label.begins_with("T") or label.begins_with("S") or label.begins_with("Z") or label.begins_with("I-")):
+			continue
+		var color := str(piece.get("color", ""))
+		var min_x := 999999
+		var origin := _pair(piece.get("pos", []))
+		for cell in piece.get("cells", []):
+			var parsed := _pair(cell)
+			if parsed != Vector2i(-1, -1):
+				min_x = mini(min_x, origin.x + parsed.x)
+		for gate in definition.get("gates", []):
+			if typeof(gate) != TYPE_DICTIONARY:
+				continue
+			if str(gate.get("side", "")) != "bottom":
+				continue
+			var accept: Array = gate.get("accept", [])
+			if not accept.has(color):
+				continue
+			if min_x != _whole(gate.get("lo", 0)):
+				return true
+	return false
+
+static func similarity(left: Dictionary, right: Dictionary) -> float:
+	var a: Dictionary = left["structural_fingerprint"] if left.has("structural_fingerprint") else left
+	var b: Dictionary = right["structural_fingerprint"] if right.has("structural_fingerprint") else right
+	if str(a.get("family", "")) == "siding_1d" and str(b.get("family", "")) == "siding_1d":
+		return 0.92
+	if str(a.get("pattern", "")) == "siding_1d" and str(b.get("pattern", "")) == "siding_1d":
+		return 0.92
+	var score := 0.0
+	if str(a.get("family", "")) == str(b.get("family", "")):
+		score += 0.15
+	if str(a.get("pattern", "")) != "" and str(a.get("pattern", "")) == str(b.get("pattern", "")):
+		score += 0.25
+	if int(a.get("piece_count", 0)) == int(b.get("piece_count", 0)):
+		score += 0.1
+	if int(a.get("cols", 0)) == int(b.get("cols", 0)) and int(a.get("rows", 0)) == int(b.get("rows", 0)):
+		score += 0.1
+	score += 0.3 * _jaccard(a.get("shape_types", []), b.get("shape_types", []))
+	if ",".join(a.get("gate_profiles", [])) == ",".join(b.get("gate_profiles", [])):
+		score += 0.1
+	return score
+
+static func _jaccard(left, right) -> float:
+	var a := {}
+	var b := {}
+	if typeof(left) == TYPE_ARRAY:
+		for item in left:
+			a[str(item)] = true
+	if typeof(right) == TYPE_ARRAY:
+		for item in right:
+			b[str(item)] = true
+	if a.is_empty() and b.is_empty():
+		return 1.0
+	var both := 0
+	for key in a.keys():
+		if b.has(key):
+			both += 1
+	var union := a.size() + b.size() - both
+	if union <= 0:
+		return 0.0
+	return float(both) / float(union)
+
+static func near_duplicate(left: Dictionary, right: Dictionary) -> bool:
+	return similarity(left, right) >= 0.8
+
+static func _interaction(definition: Dictionary, rows: Array, witness: Array) -> Dictionary:
+	var blocked := 0
+	var delayed := 0
+	for row in rows:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		if not row.get("blocked_by", []).is_empty():
+			blocked += 1
+		if int(row.get("delay_before_exit", -1)) > 0:
+			delayed += 1
+	var used := {}
+	for action in witness:
+		if action is PuzzleAction:
+			used[action.piece_id] = true
+	var piece_n := 0
+	for piece in definition.get("pieces", []):
+		if typeof(piece) == TYPE_DICTIONARY:
+			piece_n += 1
+	return {
+		"blocked_piece_count": blocked,
+		"delayed_exit_count": delayed,
+		"witness_piece_count": used.size(),
+		"genuine_multi_piece": blocked >= 2 and delayed >= 1 and used.size() >= 2,
+	}
+
+static func _canonical_cells(pts: Array[Vector2i]) -> Array[Vector2i]:
+	var best := ""
+	var best_pts: Array[Vector2i] = pts
+	for r in 4:
+		var rotated: Array[Vector2i] = []
+		for p in pts:
+			var q := p
+			for _i in r:
+				q = Vector2i(-q.y, q.x)
+			rotated.append(q)
+		var min_x := rotated[0].x
+		var min_y := rotated[0].y
+		for p in rotated:
+			min_x = mini(min_x, p.x)
+			min_y = mini(min_y, p.y)
+		var shifted: Array[Vector2i] = []
+		for p in rotated:
+			shifted.append(Vector2i(p.x - min_x, p.y - min_y))
+		shifted.sort_custom(func(a, b):
+			return a.y < b.y or (a.y == b.y and a.x < b.x)
+		)
+		var key := _cell_key(shifted)
+		if best == "" or key < best:
+			best = key
+			best_pts = shifted
+	return best_pts
+
+static func _cell_key(pts: Array[Vector2i]) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for p in pts:
+		parts.append("%d,%d" % [p.x, p.y])
+	return "|".join(parts)
 
 static func _replay(definition: Dictionary, initial: PuzzleState, witness: Array) -> Dictionary:
 	var cursor := initial.duplicate()

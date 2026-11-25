@@ -77,6 +77,7 @@ func _initialize() -> void:
 	for _i in 5:
 		await process_frame
 	_ok(_button_text(menu, "Editor"), "dev mode shows the Editor entry")
+	_ok(_button_text(menu, "TD-3.6 QA"), "dev mode shows the TD-3.6 QA entry")
 	_check_scene(menu, "menu_dev", {"name": "360x800-dev", "insets": Vector4(0, 96, 0, 48)})
 	await _shot(out, "360x800_menu_dev.png")
 	menu.queue_free()
@@ -106,6 +107,7 @@ func _check_scene(node: Node, scene_name: String, case: Dictionary) -> void:
 	_ok(content.end.y <= view.end.y - insets.w - SafeArea.CONTENT_PAD + 2.0, "%s keeps the bottom inset" % tag)
 	if scene_name.begins_with("menu") and scene_name != "menu_dev":
 		_ok(not _button_text(node, "Editor"), "%s hides the editor from the player menu" % tag)
+		_ok(not _button_text(node, "TD-3.6 QA"), "%s hides TD-3.6 QA from the player menu" % tag)
 	var buttons: Array[Control] = []
 	_collect(node, buttons)
 	var allowed := content.grow(2.0)

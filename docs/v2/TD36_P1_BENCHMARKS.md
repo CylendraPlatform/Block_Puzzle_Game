@@ -1,6 +1,8 @@
-# TD-3.6 P1 — eight benchmark puzzles
+# TD-3.6 P1 — eight technical fixtures
 
-Hand-authored `levels_v2/td36/` files. Metrics from `PuzzleMetrics.evaluate` (SolverV2, cap 80 000 expansions). Godot 4.7.2, 2026-11-25. Human playtest: not run. P2–P5: not started.
+Hand-authored `levels_v2/td36/` files `td36-001`–`008`. Metrics from `PuzzleMetrics.evaluate` (SolverV2, cap 80 000 expansions). Godot 4.7.2, 2026-11-25. Human playtest: not run. P2–P5: not started.
+
+Product review accepted solver validity and rejected these eight as generator seeds (six are 1D siding). They remain **fixtures**. Eight additional polyomino candidates are in `docs/v2/TD36_P1_CANDIDATES.md`.
 
 ## Instrumentation (P0)
 
@@ -14,6 +16,9 @@ Hand-authored `levels_v2/td36/` files. Metrics from `PuzzleMetrics.evaluate` (So
 | `branching` | Legal-action counts along the witness. |
 | `shortest_path_count` | Separate BFS with path weights, cap 80 000. Incomplete counts are lower bounds. |
 | `dependencies` | Solo solve of each piece, then other pieces turned into walls. `dependency_proven` if any piece’s length or solvability changes. |
+| `genuine_multi_piece` | True when at least two pieces are counterfactually blocked, at least one exit is delayed, and the witness uses two or more pieces. |
+| `mechanism_family` / `interaction_pattern` | Layout class (`siding_1d`, `polyomino_board`, …) and a finer pattern (`drop_wait`, `bar_lane`, …). Two `siding_1d` fingerprints score 0.92 similar. |
+| `human_difficulty` | Always `unmeasured` until a playtest writes a median. |
 | `unreachable_cells` / `unreachable_gates` | Flood-fill from start cells. |
 
 Ceilings: main search 80 000 expansions; path-count 80 000; counterfactual 5 000; no wall-clock kill.
@@ -109,4 +114,4 @@ Desktop SubViewport 360×800 start positions: `build/qa/td36/td36_00N_start.png`
 
 ## Out of scope (stop here)
 
-Remaining 22 levels, generator, QA scene, timer, APK, human playtest, public Play route, merges of PR #6 / #7 / #8.
+Remaining 22 levels, generator, bulk production, public Play route, merges of PR #6 / #7 / #8. Human playtest of the new candidates is the next product-owner step. P2 is not started.

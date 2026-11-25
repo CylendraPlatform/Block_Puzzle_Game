@@ -1,5 +1,5 @@
 # TD-3.6 — Puzzle Depth & Gameplay Production
-Status: P0–P1 implemented on `feat/td36-puzzle-depth-production`. Not accepted. P2–P5 not started. Product-owner decision still required on benchmark difficulty.
+Status: P0 provisionally accepted. P1 solver validity accepted; original eight fixtures rejected as generator seeds. Eight additional polyomino candidates are on `feat/td36-puzzle-depth-production` (PR #8) for product playtest. P2–P5 not started.
 Working branch: `feat/td36-puzzle-depth-production`
 Parent: `feat/td35-premium-playful-visuals` / PR #7 (itself stacked on open PR #6).
 Read this file and `docs/v2/TD36_LEVEL_DESIGN.md`, `docs/v2/TD36_GENERATOR_EVALUATION.md`, `docs/v2/TD36_PLAYTEST_ACCEPTANCE.md` before implementation. Read AGENTS/CLAUDE/.cursor and existing docs/runbooks first.

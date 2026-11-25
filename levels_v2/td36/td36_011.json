@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-011",
+  "name": "Z And the Post",
+  "board": {"cols": 5, "rows": 5, "walls": [[0, 0]]},
+  "pieces": [
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0], [1, 0], [1, 1], [2, 1]], "pos": [1, 0], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [0, 1], [0, 2]], "pos": [3, 2], "required": true, "reveal": "visible"},
+    {"id": "red", "color": "red", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [0, 3], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [2, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "yellow_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["yellow"], "initial_state": "open"},
+    {"id": "blue_right", "side": "right", "lo": 2, "hi": 4, "accept": ["blue"], "initial_state": "open"},
+    {"id": "red_left", "side": "left", "lo": 3, "hi": 4, "accept": ["red"], "initial_state": "open"},
+    {"id": "orange_right", "side": "right", "lo": 4, "hi": 4, "accept": ["orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The Z needs floor columns 1-3. A tall post stands on the right of that span.",
+    "intent": "A Z-tetromino drops only after a vertical I-tromino leaves column 3 and the floor key leaves."
+  }
+}
