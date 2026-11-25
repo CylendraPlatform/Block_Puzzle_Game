@@ -280,8 +280,8 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 			return "position"
 		if typeof(piece.get("active", null)) != TYPE_BOOL or typeof(piece.get("revealed", null)) != TYPE_BOOL:
 			return "piece-flags"
-		var expected_revealed := str(geometry[id]["reveal"]) != "hidden"
-		if bool(piece["revealed"]) != expected_revealed:
+		# A visible piece must stay revealed; a hidden piece may be revealed or not.
+		if str(geometry[id]["reveal"]) != "hidden" and not bool(piece["revealed"]):
 			return "reveal"
 		var origin: Vector2i = piece["pos"]
 		for offset in geometry[id]["offsets"]:
@@ -294,6 +294,9 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 				if occupied.has(cell):
 					return "overlap"
 				occupied[cell] = true
+	# Gates: accept any reachable mutation; reject structurally impossible state.
+	# A static-open gate must stay OPEN; a counter never leaves [0, initial]; a
+	# gate with no counter keeps the -1 sentinel.
 	var expected_gates := _expected_gates(definition)
 	if state.gates.size() != expected_gates.size():
 		return "gates"
@@ -301,31 +304,60 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 		if not state.gates.has(gate_id) or typeof(state.gates[gate_id]) != TYPE_DICTIONARY:
 			return "gate"
 		var gate_state: Dictionary = state.gates[gate_id]
-		if str(gate_state.get("mode", "")) != str(expected_gates[gate_id]["mode"]):
+		var mode := str(gate_state.get("mode", ""))
+		if mode != "OPEN" and mode != "LOCKED":
+			return "gate-mode"
+		if GateRules.classify(_gate_by_id(definition, gate_id)) == GateRules.STATIC_OPEN and mode != "OPEN":
 			return "gate-mode"
 		if typeof(gate_state.get("counter_remaining", null)) != TYPE_INT:
 			return "gate-counter"
-		if int(gate_state["counter_remaining"]) != int(expected_gates[gate_id]["counter_remaining"]):
+		var gate_counter := int(gate_state["counter_remaining"])
+		var init_gate_counter := int(expected_gates[gate_id]["counter_remaining"])
+		if init_gate_counter < 0:
+			if gate_counter != -1:
+				return "gate-counter"
+		elif gate_counter < 0 or gate_counter > init_gate_counter:
 			return "gate-counter"
+	# Blockers: active may be true or false; counter stays within [0, initial];
+	# an active blocker may not share a cell with an active piece.
 	var expected_blockers := _expected_blockers(definition)
 	if state.blockers.size() != expected_blockers.size():
 		return "blockers"
+	var blocker_cells := _blocker_cells(definition)
 	for blocker_id in expected_blockers.keys():
 		if not state.blockers.has(blocker_id) or typeof(state.blockers[blocker_id]) != TYPE_DICTIONARY:
 			return "blocker"
 		var blocker_state: Dictionary = state.blockers[blocker_id]
 		if typeof(blocker_state.get("active", null)) != TYPE_BOOL or typeof(blocker_state.get("counter_remaining", null)) != TYPE_INT:
 			return "blocker"
-		if not bool(blocker_state["active"]) or int(blocker_state["counter_remaining"]) != int(expected_blockers[blocker_id]):
+		var blocker_counter := int(blocker_state["counter_remaining"])
+		var init_blocker_counter := int(expected_blockers[blocker_id])
+		if init_blocker_counter < 0:
+			if blocker_counter != -1:
+				return "blocker"
+		elif blocker_counter < 0 or blocker_counter > init_blocker_counter:
 			return "blocker"
+		if bool(blocker_state["active"]) and blocker_cells.has(blocker_id) and occupied.has(blocker_cells[blocker_id]):
+			return "blocker-overlap"
+	# Triggers: the fired flags cover exactly the defined triggers, each a boolean.
 	var expected_triggers := _expected_triggers(definition)
 	if state.trigger_fired.size() != expected_triggers.size():
 		return "triggers"
 	for trigger_id in expected_triggers.keys():
 		if not state.trigger_fired.has(trigger_id) or typeof(state.trigger_fired[trigger_id]) != TYPE_BOOL:
 			return "trigger"
-	if not state.event_counters.is_empty():
-		return "counters"
+	# Cumulative exit counters: color keys only, each within [0, pieces of that
+	# color] (required and optional pieces both can exit).
+	var color_caps := _color_exit_caps(definition)
+	for key in state.event_counters.keys():
+		var counter_key := str(key)
+		if typeof(state.event_counters[key]) != TYPE_INT:
+			return "counters"
+		var counter_value := int(state.event_counters[key])
+		if not color_caps.has(counter_key):
+			return "counters"
+		if counter_value < 0 or counter_value > int(color_caps[counter_key]):
+			return "counters"
 	return ""
 
 static func _expected_gates(definition: Dictionary) -> Dictionary:
@@ -363,6 +395,28 @@ static func _expected_triggers(definition: Dictionary) -> Dictionary:
 		if typeof(trigger) == TYPE_DICTIONARY:
 			expected[str(trigger.get("id", ""))] = true
 	return expected
+
+## Blocker id -> its single occupied cell, for integrity overlap checks.
+static func _blocker_cells(definition: Dictionary) -> Dictionary:
+	var cells := {}
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var cell = _pair(blocker.get("cell", null))
+		if cell != null:
+			cells[str(blocker.get("id", ""))] = cell
+	return cells
+
+## Color -> number of pieces of that color (required and optional). This is the
+## upper bound for a cumulative exit counter of that color.
+static func _color_exit_caps(definition: Dictionary) -> Dictionary:
+	var caps := {}
+	for piece in definition.get("pieces", []):
+		if typeof(piece) != TYPE_DICTIONARY:
+			continue
+		var color := str(piece.get("color", ""))
+		caps[color] = int(caps.get(color, 0)) + 1
+	return caps
 
 static func _unsupported_reason(definition: Dictionary) -> String:
 	if _uses_unimplemented_mechanics(definition):

@@ -233,6 +233,7 @@ static func _check_gate(gate, index: int, cols: int, rows: int, ids: Dictionary,
 	if gate.has("counter"):
 		if _check_counter(gate["counter"], path + ".counter", diags) and not id.is_empty():
 			counters[id] = true
+	GateRules.validate_config(gate, path, diags)
 
 static func _check_trigger_list(data: Dictionary, ids: Dictionary, diags: Array) -> void:
 	if not data.has("triggers"):
