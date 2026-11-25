@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "id": "adv-001",
+  "name": "Gatekeeper Yard",
+  "board": {"cols": 5, "rows": 5, "walls": []},
+  "pieces": [
+    {"id": "r1", "color": "red", "cells": [[0, 0]], "pos": [0, 0], "required": true, "reveal": "visible"},
+    {"id": "r2", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1]], "pos": [0, 3], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [4, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_left", "side": "left", "lo": 0, "hi": 1, "accept": ["red"], "initial_state": "open"},
+    {"id": "green_left", "side": "left", "lo": 3, "hi": 4, "accept": ["green"], "initial_state": "open"},
+    {"id": "blue_bottom", "side": "bottom", "lo": 4, "hi": 4, "accept": ["blue"], "initial_state": "locked", "counter": {"remaining": 2}}
+  ],
+  "triggers": [
+    {"id": "t_r1", "when": {"event": "piece_exited", "piece_id": "r1"}, "effect": {"type": "decrement_counter", "gate_id": "blue_bottom"}},
+    {"id": "t_r2", "when": {"event": "piece_exited", "piece_id": "r2"}, "effect": {"type": "decrement_counter", "gate_id": "blue_bottom"}}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "Blue's gate opens only after both red keys leave.",
+    "intent": "Counter gate: each red exit decrements the counter; at zero blue's gate unlocks. Original layout, mechanic-driven dependency."
+  }
+}

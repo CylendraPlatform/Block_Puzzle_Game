@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "id": "adv-003",
+  "name": "Shiftgate Gauntlet",
+  "board": {"cols": 4, "rows": 1, "walls": []},
+  "pieces": [
+    {"id": "green", "color": "green", "cells": [[0, 0]], "pos": [0, 0], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [1, 0], "required": true, "reveal": "visible"},
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [2, 0], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "g", "side": "right", "lo": 0, "hi": 0, "accept": ["red", "blue", "green"], "initial_state": "open", "color_schedule": ["red", "blue", "green"]}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "One gate, three colors, rotating by the move count.",
+    "intent": "Color-switching gate accepts red at phase 0, blue at phase 1, green at phase 2. Pieces are positioned so the forced order matches the schedule. Original layout."
+  }
+}
