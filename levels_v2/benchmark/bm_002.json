@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "bm-002",
+  "name": "Three-Lane Jam",
+  "board": {"cols": 5, "rows": 5, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0], [1, 0]], "pos": [2, 2], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [4, 2], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1]], "pos": [1, 2], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [1, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 2, "hi": 2, "accept": ["red"], "initial_state": "open"},
+    {"id": "yellow_top", "side": "top", "lo": 4, "hi": 4, "accept": ["yellow"], "initial_state": "open"},
+    {"id": "green_bottom", "side": "bottom", "lo": 1, "hi": 1, "accept": ["green"], "initial_state": "open"},
+    {"id": "blue_left", "side": "left", "lo": 4, "hi": 4, "accept": ["blue"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "Two short chains share the board.",
+    "intent": "Yellow must clear row 2 before red can exit right; blue must clear column 1 before green can drop. Original layout, no padding moves."
+  }
+}
