@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "id": "td36-004",
+  "name": "Three Against Two",
+  "board": {
+    "cols": 8,
+    "rows": 2,
+    "walls": [[0, 0], [1, 0], [2, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+  },
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [1, 1], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0]], "pos": [2, 1], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [4, 1], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [5, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "east", "side": "right", "lo": 1, "hi": 1, "accept": ["red", "blue", "green"], "initial_state": "open"},
+    {"id": "west", "side": "left", "lo": 1, "hi": 1, "accept": ["yellow", "orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "Three heading east meet two heading west.",
+    "intent": "The extra eastbound tile makes the same siding busier than the four-tile pass."
+  }
+}

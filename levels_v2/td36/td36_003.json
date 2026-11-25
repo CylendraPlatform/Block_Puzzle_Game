@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "id": "td36-003",
+  "name": "Passing Siding",
+  "board": {
+    "cols": 6,
+    "rows": 2,
+    "walls": [[0, 0], [1, 0], [3, 0], [4, 0], [5, 0]]
+  },
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [1, 1], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [3, 1], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [4, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "east", "side": "right", "lo": 1, "hi": 1, "accept": ["red", "blue"], "initial_state": "open"},
+    {"id": "west", "side": "left", "lo": 1, "hi": 1, "accept": ["yellow", "orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "Two heading east meet two heading west.",
+    "intent": "A single pocket is the only place opposing tiles can pass."
+  }
+}

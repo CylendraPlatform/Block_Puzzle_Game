@@ -1,0 +1,9 @@
+level_id,status,shortest_proven,solution_length,explored_states,elapsed_ms,shortest_path_count,shortest_path_count_complete,branch_min,branch_max,branch_mean,dependency_proven,unreachable_cells
+td36-001,SOLVED,true,5,334,569,9,true,7,15,9.600,true,0
+td36-002,SOLVED,true,6,1831,3933,16,true,7,17,10.500,true,0
+td36-003,SOLVED,true,15,344,312,3,true,1,7,4.933,true,0
+td36-004,SOLVED,true,18,3384,4270,3,true,1,9,6.722,true,0
+td36-005,SOLVED,true,29,12800,18630,24,true,1,11,7.724,true,0
+td36-006,SOLVED,true,22,7548,10086,54,true,1,12,7.000,true,0
+td36-007,SOLVED,true,27,12800,18704,4,true,1,11,8.037,true,0
+td36-008,SOLVED,true,31,12811,18632,84,true,1,11,7.613,true,0

@@ -1,3 +1,26 @@
+# TD-3.6 — Puzzle depth & gameplay production (P0–P1)
+
+**Status:** P0 instrumentation and P1 eight benchmarks implemented on `feat/td36-puzzle-depth-production` (PR #8). Not accepted. No human playtest. P2–P5 not started. Do not merge PR #6, #7, or #8.
+**Parent:** `feat/td35-premium-playful-visuals` / PR #7 (unmerged), stacked on PR #6.
+**Spec:** `docs/tasks/TD-3_6_IMPLEMENTATION.md`, `docs/v2/TD36_*.md`.
+**Proofs:** `docs/v2/TD36_P1_BENCHMARKS.md`, `docs/v2/td36_level_cards.json`, `levels_v2/td36/`.
+
+`PuzzleMetrics` times `SolverV2.solve` (cap 80 000 expansions), replays the witness, records branching along that path, counts shortest paths with a separate capped BFS, and scores dependencies by solving each piece alone versus with others frozen as walls. `UNKNOWN_CAP_REACHED` is not treated as unsolvable. Level JSON stays on schema 2; cards live outside the engine.
+
+Eight hand-authored files in `levels_v2/td36/`. All `SOLVED` with replayed witnesses. Observed shortest lengths: 5, 6, 15, 18, 29, 22, 27, 31. Two Easy / two Medium / two Hard / two Expert *targets*. td36-005 is 29 actions (Expert hypothesis 30+; `meets_target` false). td36-008 is 31 actions with 6 pieces (length meets Expert; 8–12 pieces does not). A 4-vs-3 seven-tile siding searched to exhaustion is unsolvable; that is a mechanic/capacity limit for TD-4, not a padded Expert. `levels/`, `levels_v2/pilot/`, `user://progress.save`, and `user://pilot_v2.save` are unchanged. No public Play route.
+
+Godot 4.7.2, Windows, 2026-11-25:
+
+| Command | Exit |
+| --- | --- |
+| `--headless --script res://test/test_td36_benchmarks.gd` | 0 (8 SOLVED, cards match, catalog 100, pilot 15) |
+| `--script res://test/test_td36_shots.gd` | 0 (8 PNGs, real renderer) |
+| `--headless --script res://test/test_v2_pilot.gd` | 0 (15 SOLVED) |
+| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
+| `--headless --script res://test/test_v2_session.gd` | 0 |
+
+Desktop PNGs: `build/qa/td36/` (gitignored). `test_v2_solver.gd` and `test_v2_campaign.gd` were not rerun.
+
 # TD-3.5 — Premium playful visuals
 
 **Status:** Implemented on `feat/td35-premium-playful-visuals`. Not accepted. No physical Android device session and no owner visual sign-off.
