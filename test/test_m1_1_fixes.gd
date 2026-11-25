@@ -68,14 +68,34 @@ func _initialize() -> void:
 	var fo := _solve(fanout)
 	_ok(fo["status"] == "SOLVED" and fo["len"] == 3, "fan-out cascade (3 triggers on one exit) SOLVED len 3 got %s len %d" % [fo["status"], fo["len"]])
 
-	# --- Finding #4: the solver time budget expires honestly as UNKNOWN_CAP_REACHED. ---
-	# bm_001's full search is ~9910 states; no machine completes that in 1 ms, so a 1 ms
-	# budget deterministically stops early. Honest: it is cap-reached, never UNSOLVABLE.
-	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://levels_v2/benchmark/bm_001.json"))
-	var big: Dictionary = raw
-	var budgeted := _solve(big, 1)
-	_ok(budgeted["status"] == PuzzleEngine.UNKNOWN_CAP_REACHED, "a 1 ms budget on bm-001 reports UNKNOWN_CAP_REACHED (not SOLVED/UNSOLVABLE) got %s" % budgeted["status"])
-	_ok(budgeted["explored"] >= 1 and budgeted["explored"] < 9910, "budget stopped the search early (explored %d < 9910)" % budgeted["explored"])
+	# --- Finding #4: the time budget expires as UNKNOWN_CAP_REACHED, driven by an
+	# injected clock so the result is independent of machine speed. The fake clock reads
+	# 0 for the deadline computation and the first in-loop check (one state expands), then
+	# jumps far past the deadline (the search stops). A 2-move level guarantees no child of
+	# the initial state is a win, so the stop happens on the budget, not a solution. ---
+	var two := {
+		"schema_version": 2, "id": "fix-budget", "name": "Budget",
+		"board": {"cols": 2, "rows": 1, "walls": []},
+		"pieces": [
+			{"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 0], "required": true, "reveal": "visible"},
+			{"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [1, 0], "required": true, "reveal": "visible"},
+		],
+		"gates": [
+			{"id": "red_left", "side": "left", "lo": 0, "hi": 0, "accept": ["red"], "initial_state": "open"},
+			{"id": "blue_right", "side": "right", "lo": 0, "hi": 0, "accept": ["blue"], "initial_state": "open"},
+		],
+		"goals": {"all_required_pieces_exited": true},
+	}
+	var calls := [0]
+	SolverV2._clock = func() -> int:
+		calls[0] += 1
+		return 0 if calls[0] <= 2 else 1000000000
+	var budgeted := SolverV2.solve(two, PuzzleState.from_definition(two), 200000, 1)
+	SolverV2._clock = Callable()
+	_ok(str(budgeted["status"]) == PuzzleEngine.UNKNOWN_CAP_REACHED, "injected-clock budget expiry reports UNKNOWN_CAP_REACHED (not SOLVED/UNSOLVABLE) got %s" % str(budgeted["status"]))
+	_ok(int(budgeted["explored_states"]) == 1, "budget stopped deterministically after exactly one expansion (explored %d)" % int(budgeted["explored_states"]))
+	# Sanity: the same level solves normally when the budget is disabled.
+	_ok(_solve(two)["status"] == "SOLVED", "the budget level is genuinely solvable without a budget")
 
 	print("== done: %d failure(s) ==" % _fails)
 	quit(_fails)
