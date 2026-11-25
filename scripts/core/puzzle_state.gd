@@ -40,8 +40,14 @@ static func from_definition(definition: Dictionary) -> PuzzleState:
 			var rem: Variant = LevelValidator.as_whole_int(gate["counter"].get("remaining", null))
 			if rem != null and int(rem) >= 0:
 				remaining = int(rem)
+		# A locked gate is open at t=0 only when its counter is already satisfied
+		# (remaining == 0). No unlock_when / color_exits condition can hold before any
+		# piece has exited, so a counter of zero is the only start-satisfiable case.
+		var mode := "OPEN"
+		if str(gate.get("initial_state", "open")) == "locked":
+			mode = "OPEN" if (gate.has("counter") and remaining == 0) else "LOCKED"
 		var gate_entry := {
-			"mode": "LOCKED" if str(gate.get("initial_state", "open")) == "locked" else "OPEN",
+			"mode": mode,
 			"counter_remaining": remaining,
 		}
 		if gate.has("color_schedule"):
