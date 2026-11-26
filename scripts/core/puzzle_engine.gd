@@ -10,7 +10,6 @@ const SOLVED := "SOLVED"
 const UNSOLVABLE := "UNSOLVABLE"
 const UNKNOWN_CAP_REACHED := "UNKNOWN_CAP_REACHED"
 const INVALID_LEVEL := "INVALID_LEVEL"
-const MAX_CASCADE := 32
 const DIRECTIONS := ["left", "right", "up", "down"]
 
 static func transition(state: PuzzleState, action: PuzzleAction, definition: Dictionary, context: PuzzleSearchContext = null) -> Dictionary:
@@ -33,6 +32,8 @@ static func transition(state: PuzzleState, action: PuzzleAction, definition: Dic
 	var piece: Dictionary = state.pieces[action.piece_id]
 	if typeof(piece.get("active", null)) != TYPE_BOOL or not piece["active"]:
 		return _reject("ILLEGAL_ACTION", "Piece '%s' is inactive." % action.piece_id)
+	if not bool(piece.get("revealed", true)):
+		return _reject("ILLEGAL_ACTION", "Piece '%s' is hidden and cannot move." % action.piece_id)
 	var matched: PuzzleAction = action if context != null and context.owns(action, state_key) else null
 	if matched == null:
 		var legal := legal_actions(definition, state, action.piece_id, context)
@@ -59,6 +60,8 @@ static func legal_actions(definition: Dictionary, state: PuzzleState, piece_id: 
 		if piece_id != "" and id != piece_id:
 			continue
 		if typeof(state.pieces[id].get("active", null)) != TYPE_BOOL or not state.pieces[id]["active"]:
+			continue
+		if not bool(state.pieces[id].get("revealed", true)):
 			continue
 		_actions_for_piece(definition, state, geometry, id, actions, context)
 	actions.sort_custom(func(left, right):
@@ -112,8 +115,95 @@ static func _commit(state: PuzzleState, matched: PuzzleAction, definition: Dicti
 		if alignment != origin:
 			events.append(PuzzleEvent.make(PuzzleEvent.PIECE_MOVED, matched.piece_id, 0))
 		events.append(PuzzleEvent.make(PuzzleEvent.PIECE_EXITED, matched.piece_id, 1))
+		var exit_color := _piece_color(definition, matched.piece_id)
+		next.event_counters[exit_color] = int(next.event_counters.get(exit_color, 0)) + 1
 	next.move_number += 1
+	# Mechanic-free levels have no world reaction, so the solver (which sets context.simple)
+	# skips the resolution loop and phase update. Untrusted play always runs them.
+	if context == null or not context.simple:
+		var resolved := _resolve(next, definition, events)
+		if not bool(resolved["ok"]):
+			return _reject("CASCADE_LIMIT", str(resolved["message"]))
 	return {"ok": true, "next_state": next, "events": events, "error": {}}
+
+## Deterministic post-action world reaction: open gates whose condition now holds
+## and fire one-shot triggers, cascading until the state settles. Sorted-id order
+## keeps it reproducible; MAX_CASCADE bounds it; a failed effect rolls the action back.
+static func _resolve(next: PuzzleState, definition: Dictionary, events: Array) -> Dictionary:
+	# One scan over the gates: cache id -> def, and keep each color-switching gate's
+	# phase in sync with move_number (period = schedule length). This replaces the
+	# separate phase-update pass and the per-pass _gate_by_id lookups.
+	var gate_defs := {}
+	var gate_ids: Array = []
+	for gate in definition.get("gates", []):
+		if typeof(gate) != TYPE_DICTIONARY:
+			continue
+		var scan_id := str(gate.get("id", ""))
+		gate_defs[scan_id] = gate
+		gate_ids.append(scan_id)
+		if gate.has("color_schedule") and next.gates.has(scan_id):
+			next.gates[scan_id]["phase"] = next.move_number % gate["color_schedule"].size()
+	gate_ids.sort()
+	var triggers: Array = []
+	for trigger in definition.get("triggers", []):
+		if typeof(trigger) == TYPE_DICTIONARY:
+			triggers.append(trigger)
+	triggers.sort_custom(func(left, right): return str(left.get("id", "")) < str(right.get("id", "")))
+	# Effects and gate-opens are monotonic and triggers are one-shot, so the cascade
+	# makes at most (triggers + gates) units of progress; the +1 is the final no-change
+	# settling pass. Scaling the bound to the level means a long-but-finite chain is never
+	# falsely rejected, while a non-monotonic (buggy) cascade still terminates and reports.
+	var max_passes := triggers.size() + gate_ids.size() + 1
+	for _pass in max_passes:
+		var changed := false
+		for gid in gate_ids:
+			var gate_state: Dictionary = next.gates[gid]
+			if str(gate_state["mode"]) != "LOCKED":
+				continue
+			var kind := GateRules.classify(gate_defs[gid])
+			var opened := false
+			if kind == GateRules.UNLOCK_WHEN and Conditions.satisfied(gate_defs[gid]["unlock_when"], next):
+				opened = true
+			elif kind == GateRules.COUNTER and int(gate_state["counter_remaining"]) == 0:
+				opened = true
+			if opened:
+				gate_state["mode"] = "OPEN"
+				events.append(PuzzleEvent.make(PuzzleEvent.GATE_UNLOCKED, gid, 2))
+				changed = true
+		for trigger in triggers:
+			var tid := str(trigger.get("id", ""))
+			if bool(next.trigger_fired.get(tid, false)):
+				continue
+			if Conditions.satisfied(trigger.get("when", {}), next):
+				if not Effects.apply(trigger.get("effect", {}), next, events):
+					return {"ok": false, "message": "Effect of trigger '%s' failed." % tid}
+				next.trigger_fired[tid] = true
+				changed = true
+		if not changed:
+			return {"ok": true, "message": ""}
+	return {"ok": false, "message": "Cascade exceeded %d steps." % max_passes}
+
+## A level is simple when nothing reacts after a move: no triggers, blockers, hidden
+## pieces, or lockable / counter / color-switching gates. The resolution loop and phase
+## update are then no-ops. Used only to let the solver skip that work safely.
+static func is_simple(definition: Dictionary) -> bool:
+	if not (definition.get("triggers", []) as Array).is_empty():
+		return false
+	if not (definition.get("blockers", []) as Array).is_empty():
+		return false
+	for piece in definition.get("pieces", []):
+		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("reveal", "visible")) == "hidden":
+			return false
+	for gate in definition.get("gates", []):
+		if typeof(gate) == TYPE_DICTIONARY and (gate.has("unlock_when") or gate.has("counter") or gate.has("color_schedule")):
+			return false
+	return true
+
+static func _piece_color(definition: Dictionary, piece_id: String) -> String:
+	for piece in definition.get("pieces", []):
+		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("id", "")) == piece_id:
+			return str(piece.get("color", ""))
+	return ""
 
 static func _actions_for_piece(definition: Dictionary, state: PuzzleState, geometry: Dictionary, id: String, actions: Array, context: PuzzleSearchContext) -> void:
 	var origin: Vector2i = state.pieces[id]["pos"]
@@ -202,9 +292,13 @@ static func _matching_gates(definition: Dictionary, state: PuzzleState, color: S
 		var gate_id := str(gate.get("id", ""))
 		if not state.gates.has(gate_id) or str(state.gates[gate_id]["mode"]) != "OPEN":
 			continue
-		var accepts: Array = gate.get("accept", [])
-		if not accepts.has(color):
-			continue
+		if GateRules.is_color_switching(gate):
+			if GateRules.scheduled_color(gate, int(state.gates[gate_id].get("phase", 0))) != color:
+				continue
+		else:
+			var accepts: Array = gate.get("accept", [])
+			if not accepts.has(color):
+				continue
 		var lo := int(gate.get("lo", 0))
 		var hi := int(gate.get("hi", -1))
 		if perp_min < lo or perp_max > hi:
@@ -224,6 +318,16 @@ static func _occupied(definition: Dictionary, state: PuzzleState, exclude_id: St
 		var origin: Vector2i = state.pieces[id]["pos"]
 		for offset in geometry[id]["offsets"]:
 			occupied[origin + offset] = true
+	# Active blockers occupy their single cell until removed.
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var bid := str(blocker.get("id", ""))
+		if not state.blockers.has(bid) or not bool(state.blockers[bid]["active"]):
+			continue
+		var cell = _pair(blocker.get("cell", null))
+		if cell != null:
+			occupied[cell] = true
 	return occupied
 
 static func _geometry(definition: Dictionary) -> Dictionary:
@@ -280,8 +384,8 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 			return "position"
 		if typeof(piece.get("active", null)) != TYPE_BOOL or typeof(piece.get("revealed", null)) != TYPE_BOOL:
 			return "piece-flags"
-		var expected_revealed := str(geometry[id]["reveal"]) != "hidden"
-		if bool(piece["revealed"]) != expected_revealed:
+		# A visible piece must stay revealed; a hidden piece may be revealed or not.
+		if str(geometry[id]["reveal"]) != "hidden" and not bool(piece["revealed"]):
 			return "reveal"
 		var origin: Vector2i = piece["pos"]
 		for offset in geometry[id]["offsets"]:
@@ -294,6 +398,9 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 				if occupied.has(cell):
 					return "overlap"
 				occupied[cell] = true
+	# Gates: accept any reachable mutation; reject structurally impossible state.
+	# A static-open gate must stay OPEN; a counter never leaves [0, initial]; a
+	# gate with no counter keeps the -1 sentinel.
 	var expected_gates := _expected_gates(definition)
 	if state.gates.size() != expected_gates.size():
 		return "gates"
@@ -301,31 +408,64 @@ static func _state_problem(definition: Dictionary, state: PuzzleState, context: 
 		if not state.gates.has(gate_id) or typeof(state.gates[gate_id]) != TYPE_DICTIONARY:
 			return "gate"
 		var gate_state: Dictionary = state.gates[gate_id]
-		if str(gate_state.get("mode", "")) != str(expected_gates[gate_id]["mode"]):
+		var mode := str(gate_state.get("mode", ""))
+		if mode != "OPEN" and mode != "LOCKED":
+			return "gate-mode"
+		var gate_def := _gate_by_id(definition, gate_id)
+		if GateRules.classify(gate_def) == GateRules.STATIC_OPEN and mode != "OPEN":
 			return "gate-mode"
 		if typeof(gate_state.get("counter_remaining", null)) != TYPE_INT:
 			return "gate-counter"
-		if int(gate_state["counter_remaining"]) != int(expected_gates[gate_id]["counter_remaining"]):
+		var gate_counter := int(gate_state["counter_remaining"])
+		var init_gate_counter := int(expected_gates[gate_id]["counter_remaining"])
+		if init_gate_counter < 0:
+			if gate_counter != -1:
+				return "gate-counter"
+		elif gate_counter < 0 or gate_counter > init_gate_counter:
 			return "gate-counter"
+		if GateRules.is_color_switching(gate_def):
+			if int(gate_state.get("phase", -1)) != state.move_number % gate_def["color_schedule"].size():
+				return "gate-phase"
+	# Blockers: active may be true or false; counter stays within [0, initial];
+	# an active blocker may not share a cell with an active piece.
 	var expected_blockers := _expected_blockers(definition)
 	if state.blockers.size() != expected_blockers.size():
 		return "blockers"
+	var blocker_cells := _blocker_cells(definition)
 	for blocker_id in expected_blockers.keys():
 		if not state.blockers.has(blocker_id) or typeof(state.blockers[blocker_id]) != TYPE_DICTIONARY:
 			return "blocker"
 		var blocker_state: Dictionary = state.blockers[blocker_id]
 		if typeof(blocker_state.get("active", null)) != TYPE_BOOL or typeof(blocker_state.get("counter_remaining", null)) != TYPE_INT:
 			return "blocker"
-		if not bool(blocker_state["active"]) or int(blocker_state["counter_remaining"]) != int(expected_blockers[blocker_id]):
+		var blocker_counter := int(blocker_state["counter_remaining"])
+		var init_blocker_counter := int(expected_blockers[blocker_id])
+		if init_blocker_counter < 0:
+			if blocker_counter != -1:
+				return "blocker"
+		elif blocker_counter < 0 or blocker_counter > init_blocker_counter:
 			return "blocker"
+		if bool(blocker_state["active"]) and blocker_cells.has(blocker_id) and occupied.has(blocker_cells[blocker_id]):
+			return "blocker-overlap"
+	# Triggers: the fired flags cover exactly the defined triggers, each a boolean.
 	var expected_triggers := _expected_triggers(definition)
 	if state.trigger_fired.size() != expected_triggers.size():
 		return "triggers"
 	for trigger_id in expected_triggers.keys():
 		if not state.trigger_fired.has(trigger_id) or typeof(state.trigger_fired[trigger_id]) != TYPE_BOOL:
 			return "trigger"
-	if not state.event_counters.is_empty():
-		return "counters"
+	# Cumulative exit counters: color keys only, each within [0, pieces of that
+	# color] (required and optional pieces both can exit).
+	var color_caps := _color_exit_caps(definition)
+	for key in state.event_counters.keys():
+		var counter_key := str(key)
+		if typeof(state.event_counters[key]) != TYPE_INT:
+			return "counters"
+		var counter_value := int(state.event_counters[key])
+		if not color_caps.has(counter_key):
+			return "counters"
+		if counter_value < 0 or counter_value > int(color_caps[counter_key]):
+			return "counters"
 	return ""
 
 static func _expected_gates(definition: Dictionary) -> Dictionary:
@@ -364,28 +504,36 @@ static func _expected_triggers(definition: Dictionary) -> Dictionary:
 			expected[str(trigger.get("id", ""))] = true
 	return expected
 
+## Blocker id -> its single occupied cell, for integrity overlap checks.
+static func _blocker_cells(definition: Dictionary) -> Dictionary:
+	var cells := {}
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var cell = _pair(blocker.get("cell", null))
+		if cell != null:
+			cells[str(blocker.get("id", ""))] = cell
+	return cells
+
+## Color -> number of pieces of that color (required and optional). This is the
+## upper bound for a cumulative exit counter of that color.
+static func _color_exit_caps(definition: Dictionary) -> Dictionary:
+	var caps := {}
+	for piece in definition.get("pieces", []):
+		if typeof(piece) != TYPE_DICTIONARY:
+			continue
+		var color := str(piece.get("color", ""))
+		caps[color] = int(caps.get(color, 0)) + 1
+	return caps
+
 static func _unsupported_reason(definition: Dictionary) -> String:
 	if _uses_unimplemented_mechanics(definition):
 		return "Triggers, locked gates, counters, blockers, or hidden pieces are parsed only. Runtime execution is not available."
 	return ""
 
+## M1.1 implements locked/conditional gates, counters, triggers, blockers and hidden
+## pieces. Only rotation and a real-time timer stay out of scope and fail-closed.
 static func _uses_unimplemented_mechanics(definition: Dictionary) -> bool:
-	var triggers = definition.get("triggers", [])
-	if typeof(triggers) == TYPE_ARRAY and not triggers.is_empty():
-		return true
-	var blockers = definition.get("blockers", [])
-	if typeof(blockers) == TYPE_ARRAY and not blockers.is_empty():
-		return true
-	for piece in definition.get("pieces", []):
-		if typeof(piece) == TYPE_DICTIONARY and str(piece.get("reveal", "visible")) == "hidden":
-			return true
-	for gate in definition.get("gates", []):
-		if typeof(gate) != TYPE_DICTIONARY:
-			continue
-		if str(gate.get("initial_state", "open")) == "locked":
-			return true
-		if gate.has("unlock_when") or gate.has("counter"):
-			return true
 	var rules = definition.get("rules", {})
 	if rules is Dictionary and (bool(rules.get("rotation", false)) or rules.get("timer_seconds", null) != null):
 		return true

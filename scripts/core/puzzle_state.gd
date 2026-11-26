@@ -40,10 +40,19 @@ static func from_definition(definition: Dictionary) -> PuzzleState:
 			var rem: Variant = LevelValidator.as_whole_int(gate["counter"].get("remaining", null))
 			if rem != null and int(rem) >= 0:
 				remaining = int(rem)
-		state.gates[str(gate.get("id", ""))] = {
-			"mode": "LOCKED" if str(gate.get("initial_state", "open")) == "locked" else "OPEN",
+		# A locked gate is open at t=0 only when its counter is already satisfied
+		# (remaining == 0). No unlock_when / color_exits condition can hold before any
+		# piece has exited, so a counter of zero is the only start-satisfiable case.
+		var mode := "OPEN"
+		if str(gate.get("initial_state", "open")) == "locked":
+			mode = "OPEN" if (gate.has("counter") and remaining == 0) else "LOCKED"
+		var gate_entry := {
+			"mode": mode,
 			"counter_remaining": remaining,
 		}
+		if gate.has("color_schedule"):
+			gate_entry["phase"] = 0
+		state.gates[str(gate.get("id", ""))] = gate_entry
 	for blocker in definition.get("blockers", []):
 		if typeof(blocker) != TYPE_DICTIONARY:
 			continue
@@ -79,6 +88,8 @@ func duplicate() -> PuzzleState:
 			"mode": str(gate["mode"]),
 			"counter_remaining": int(gate["counter_remaining"]),
 		}
+		if gate.has("phase"):
+			copy.gates[id]["phase"] = int(gate["phase"])
 	for id in blockers.keys():
 		var blocker: Dictionary = blockers[id]
 		copy.blockers[id] = {
@@ -113,7 +124,8 @@ func _lines(include_move: bool) -> PackedStringArray:
 		var gate: Dictionary = gates[id]
 		var counter := int(gate["counter_remaining"])
 		var counter_text := "none" if counter < 0 else str(counter)
-		lines.append("gate %s mode=%s counter=%s" % [id, str(gate["mode"]), counter_text])
+		var phase_text := " phase=%d" % int(gate["phase"]) if gate.has("phase") else ""
+		lines.append("gate %s mode=%s counter=%s%s" % [id, str(gate["mode"]), counter_text, phase_text])
 	for id in _sorted(blockers):
 		var blocker: Dictionary = blockers[id]
 		lines.append("blocker %s active=%d counter=%d" % [id, int(bool(blocker["active"])), int(blocker["counter_remaining"])])

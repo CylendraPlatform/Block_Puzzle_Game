@@ -263,7 +263,7 @@ func _state_and_transition() -> void:
 	var hidden_state := PuzzleState.from_definition(hidden)
 	var hidden_before := hidden_state.canonical_text()
 	var blocked: Dictionary = PuzzleEngine.transition(hidden_state, PuzzleAction.exit_through("g1", "green_exit"), hidden)
-	_ok(blocked["error"]["code"] == "UNSUPPORTED_FEATURE" and blocked["ok"] == false, "hidden and locked mechanics do not pretend to run")
+	_ok(blocked["error"]["code"] == "ILLEGAL_ACTION" and blocked["ok"] == false, "a hidden piece cannot be exited until revealed")
 	_ok(hidden_state.canonical_text() == hidden_before, "unsupported feature rejection does not mutate state")
 	_ok(bool(hidden_state.pieces["g1"]["revealed"]) == false and hidden_state.gates["green_exit"]["mode"] == "LOCKED", "state hash inputs keep reveal and lock flags")
 

@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "id": "adv-002",
+  "name": "Hidden Hand Vault",
+  "board": {"cols": 5, "rows": 5, "walls": []},
+  "pieces": [
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [0, 0], "required": true, "reveal": "visible"},
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 4], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0]], "pos": [2, 2], "required": true, "reveal": "hidden"}
+  ],
+  "gates": [
+    {"id": "blue_left", "side": "left", "lo": 0, "hi": 0, "accept": ["blue"], "initial_state": "open"},
+    {"id": "red_left", "side": "left", "lo": 4, "hi": 4, "accept": ["red"], "initial_state": "open"},
+    {"id": "green_bottom", "side": "bottom", "lo": 2, "hi": 2, "accept": ["green"], "initial_state": "open"}
+  ],
+  "blockers": [{"id": "b1", "cell": [2, 3]}],
+  "triggers": [
+    {"id": "t_reveal", "when": {"event": "piece_exited", "piece_id": "blue"}, "effect": {"type": "reveal_piece", "piece_id": "green"}},
+    {"id": "t_unblock", "when": {"event": "piece_exited", "piece_id": "red"}, "effect": {"type": "remove_blocker", "blocker_id": "b1"}}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "A hidden piece is sealed behind a blocker.",
+    "intent": "Blue's exit reveals green; red's exit removes the blocker sealing green's lane; only then can green drop. Original layout."
+  }
+}

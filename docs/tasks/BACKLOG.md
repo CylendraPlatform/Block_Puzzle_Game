@@ -11,6 +11,7 @@
 - **BP-106 [P1]** Clean-checkout Android export/preset and tracked build automation.
 - **BP-107 [P2]** Evaluate optional hints, boosters and daily challenges against playtest results.
 - **BP-108 [P3]** Real ads/IAP/analytics, privacy disclosures and store release work; requires explicit authorization.
+- **REQ-SAVE-REPLAY [P2, tracked follow-up from M1.1 PR #10]** When resume-mid-puzzle save is added (persisting an in-progress `PuzzleState`), the load path must replay the committed action log from `from_definition` and compare `canonical_hash()`, rejecting on mismatch; `_state_problem` invariants alone are not sufficient. Includes save→reload→hash-match and tampered-input→rejected end-to-end tests. Not implemented in M1.1; no mid-puzzle state is persisted today. See `docs/tasks/M1_1_SAVE_INTEGRITY_AUDIT.md`.
 
 ## BP-101 archival scope
 

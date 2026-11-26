@@ -8,8 +8,23 @@ extends RefCounted
 ## max_states 0 expands nothing: an already-won state is SOLVED, otherwise
 ## the result is UNKNOWN_CAP_REACHED. UNSOLVABLE is returned only after the
 ## queue empties inside the budget. Search keys ignore move_number.
+##
+## time_budget_ms > 0 adds a wall-clock cap: exceeding it returns UNKNOWN_CAP_REACHED
+## (a recorded limitation, never UNSOLVABLE). profile_* expose the last search's time split.
 
-static func solve(definition: Dictionary, initial_state: PuzzleState, max_states: int = 200000) -> Dictionary:
+static var profile_legal_us := 0
+static var profile_transition_us := 0
+## Test seam for the time-budget clock. When valid it replaces Time.get_ticks_usec()
+## for the budget deadline only, so the expiry branch can be driven deterministically.
+## Production leaves it empty (real clock); profiling always uses the real clock.
+static var _clock := Callable()
+
+static func _now_us() -> int:
+	return int(_clock.call()) if _clock.is_valid() else Time.get_ticks_usec()
+
+static func solve(definition: Dictionary, initial_state: PuzzleState, max_states: int = 200000, time_budget_ms: int = 0) -> Dictionary:
+	profile_legal_us = 0
+	profile_transition_us = 0
 	var diags := LevelValidator.validate_v2(definition)
 	if not diags.is_empty():
 		return _result(PuzzleEngine.INVALID_LEVEL, 0, -1, [], diags)
@@ -25,26 +40,38 @@ static func solve(definition: Dictionary, initial_state: PuzzleState, max_states
 	context.geometry = PuzzleEngine._geometry(definition)
 	context.walls = PuzzleEngine._wall_cells(definition)
 	context.bounds = PuzzleEngine._bounds(definition)
-	var searched := _search(definition, initial_state, max_states, context)
+	context.simple = PuzzleEngine.is_simple(definition)
+	var searched := _search(definition, initial_state, max_states, context, time_budget_ms)
 	if str(searched["status"]) != PuzzleEngine.SOLVED:
 		return searched
 	return _checked(definition, initial_state, int(searched["explored_states"]), searched["witness"])
 
-static func _search(definition: Dictionary, initial_state: PuzzleState, max_states: int, context: PuzzleSearchContext) -> Dictionary:
-	var queue: Array = [initial_state]
+static func _search(definition: Dictionary, initial_state: PuzzleState, max_states: int, context: PuzzleSearchContext, time_budget_ms: int = 0) -> Dictionary:
+	# Each queue entry carries its own search key so a popped state never re-hashes it.
+	var start_key := initial_state.search_key()
+	var queue: Array = [[initial_state, start_key]]
 	var head := 0
-	var seen := {initial_state.search_key(): true}
+	var seen := {start_key: true}
 	var parent := {}
 	var explored := 0
+	var deadline := _now_us() + time_budget_ms * 1000 if time_budget_ms > 0 else 0
 	while head < queue.size():
 		if explored >= max_states:
 			return _result(PuzzleEngine.UNKNOWN_CAP_REACHED, explored, -1, [], [])
+		if deadline > 0 and _now_us() > deadline:
+			return _result(PuzzleEngine.UNKNOWN_CAP_REACHED, explored, -1, [], [])
 		explored += 1
-		var current: PuzzleState = queue[head]
+		var entry: Array = queue[head]
 		head += 1
-		var current_key := current.search_key()
-		for action in PuzzleEngine.legal_actions(definition, current, "", context):
+		var current: PuzzleState = entry[0]
+		var current_key: String = entry[1]
+		var legal_start := Time.get_ticks_usec()
+		var legal := PuzzleEngine.legal_actions(definition, current, "", context)
+		profile_legal_us += Time.get_ticks_usec() - legal_start
+		for action in legal:
+			var transition_start := Time.get_ticks_usec()
 			var applied: Dictionary = PuzzleEngine.transition(current, action, definition, context)
+			profile_transition_us += Time.get_ticks_usec() - transition_start
 			if not bool(applied["ok"]):
 				continue
 			var next: PuzzleState = applied["next_state"]
@@ -55,7 +82,7 @@ static func _search(definition: Dictionary, initial_state: PuzzleState, max_stat
 				continue
 			seen[key] = true
 			parent[key] = [current_key, action]
-			queue.append(next)
+			queue.append([next, key])
 	return _result(PuzzleEngine.UNSOLVABLE, explored, -1, [], [])
 
 static func _witness(parent: Dictionary, current_key: String, last_action: PuzzleAction) -> Array:

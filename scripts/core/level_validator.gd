@@ -14,7 +14,7 @@ const TOP_LEVEL := ["schema_version", "id", "name", "chapter", "board", "rules",
 const BOARD_FIELDS := ["cols", "rows", "walls"]
 const RULE_FIELDS := ["rotation", "timer_seconds"]
 const PIECE_FIELDS := ["id", "cells", "pos", "color", "required", "reveal"]
-const GATE_FIELDS := ["id", "side", "lo", "hi", "accept", "initial_state", "unlock_when", "counter"]
+const GATE_FIELDS := ["id", "side", "lo", "hi", "accept", "initial_state", "unlock_when", "counter", "color_schedule"]
 const TRIGGER_FIELDS := ["id", "when", "effect"]
 const BLOCKER_FIELDS := ["id", "cell", "counter_remaining"]
 const COUNTER_FIELDS := ["remaining"]
@@ -81,7 +81,43 @@ static func validate_v2(data: Dictionary) -> Array:
 	_check_goals(data, diags)
 	_check_metrics(data, diags)
 	_check_references(data, ids, counters, diags)
+	_check_gate_unlock_sources(data, diags)
 	return diags
+
+## A locked gate opens via exactly one source: its own unlock_when, its own counter,
+## or an external unlock_gate trigger. An open gate must have no unlock source. This
+## pass needs the trigger list, so it runs after per-gate checks.
+static func _check_gate_unlock_sources(data: Dictionary, diags: Array) -> void:
+	var gates = data.get("gates", [])
+	if typeof(gates) != TYPE_ARRAY:
+		return
+	var unlock_targets := {}
+	var triggers = data.get("triggers", [])
+	if typeof(triggers) == TYPE_ARRAY:
+		for trigger in triggers:
+			if typeof(trigger) != TYPE_DICTIONARY:
+				continue
+			var effect = trigger.get("effect", null)
+			if typeof(effect) == TYPE_DICTIONARY and str(effect.get("type", "")) == "unlock_gate":
+				var target := str(effect.get("gate_id", ""))
+				unlock_targets[target] = int(unlock_targets.get(target, 0)) + 1
+	for i in gates.size():
+		var gate = gates[i]
+		if typeof(gate) != TYPE_DICTIONARY:
+			continue
+		var gid := str(gate.get("id", ""))
+		var path := "gates[%d]" % i
+		var has_external: bool = int(unlock_targets.get(gid, 0)) > 0
+		var self_sources := int(gate.has("unlock_when")) + int(gate.has("counter"))
+		if str(gate.get("initial_state", "open")) == "open":
+			if has_external:
+				diags.append(_diag("GATE_STATE_CONFLICT", path, "An open gate must not be the target of an unlock_gate trigger."))
+			continue
+		var total := self_sources + int(has_external)
+		if total == 0:
+			diags.append(_diag("GATE_STATE_CONFLICT", path, "A locked gate needs an unlock source (unlock_when, counter, or an unlock_gate trigger)."))
+		elif total > 1:
+			diags.append(_diag("GATE_STATE_CONFLICT", path, "A locked gate must have exactly one unlock source."))
 
 static func _check_walls(board: Dictionary, cols: int, rows: int, wall_set: Dictionary, diags: Array) -> void:
 	if not board.has("walls"):
@@ -233,6 +269,37 @@ static func _check_gate(gate, index: int, cols: int, rows: int, ids: Dictionary,
 	if gate.has("counter"):
 		if _check_counter(gate["counter"], path + ".counter", diags) and not id.is_empty():
 			counters[id] = true
+	GateRules.validate_config(gate, path, diags)
+	if gate.has("color_schedule"):
+		_check_color_schedule(gate, path, accept_colors, diags)
+
+## A color-switching gate lists an accepted color per phase; phase advances by one per
+## committed action (period = schedule length). It must be an open gate, hold a non-empty
+## list of known colors, and its color set must equal `accept` (kept for references/tooling).
+static func _check_color_schedule(gate: Dictionary, path: String, accept_colors: Array, diags: Array) -> void:
+	var schedule = gate["color_schedule"]
+	if typeof(schedule) != TYPE_ARRAY or schedule.is_empty():
+		diags.append(_diag("INVALID_GATE", path + ".color_schedule", "color_schedule must be a non-empty array of colors."))
+		return
+	if str(gate.get("initial_state", "open")) != "open":
+		diags.append(_diag("GATE_STATE_CONFLICT", path + ".color_schedule", "A color-switching gate must be open."))
+	var schedule_set := {}
+	for color in schedule:
+		if typeof(color) != TYPE_STRING or not COLORS.has(color):
+			diags.append(_diag("INVALID_COLOR", path + ".color_schedule", "color_schedule has an unknown color."))
+			return
+		schedule_set[color] = true
+	var accept_set := {}
+	for color in accept_colors:
+		accept_set[color] = true
+	for color in schedule_set.keys():
+		if not accept_set.has(color):
+			diags.append(_diag("INVALID_GATE", path + ".color_schedule", "color_schedule colors must match the accept list."))
+			return
+	for color in accept_set.keys():
+		if not schedule_set.has(color):
+			diags.append(_diag("INVALID_GATE", path + ".color_schedule", "accept must list exactly the color_schedule colors."))
+			return
 
 static func _check_trigger_list(data: Dictionary, ids: Dictionary, diags: Array) -> void:
 	if not data.has("triggers"):

@@ -10,6 +10,10 @@ var walls := {}
 var bounds := Vector2i.ZERO
 var checked_key := ""
 var trusted := {}
+## True when the level has no triggers, blockers, hidden pieces, or lockable/
+## counter/color-switching gates: the post-action resolution loop is then a no-op and
+## the solver skips it. Set by SolverV2; never set for untrusted play.
+var simple := false
 
 func trust(action: PuzzleAction, key: String) -> void:
 	trusted["%d|%s" % [action.get_instance_id(), key]] = action.canonical_text()
