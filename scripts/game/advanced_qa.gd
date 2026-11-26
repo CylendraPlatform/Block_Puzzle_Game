@@ -16,3 +16,18 @@ func _save_index(_index: int) -> void:
 
 func _screen_title(index: int) -> String:
 	return "Advanced QA %d" % (index + 1)
+
+## Developer-only direct level selector: open any advanced level without finishing the
+## earlier ones. Loading goes through _load(), whose _save_index() is a no-op here, so it
+## never writes campaign progress or touches existing saves.
+func _add_tools(column: Control) -> void:
+	if not DevAccess.enabled():
+		return
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	for i in _paths.size():
+		var pick := UIKit.button(_paths[i].get_file().get_basename().replace("_", "-"), _load.bind(i))
+		TD35Theme.style_compact(pick)
+		pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(pick)
+	column.add_child(row)

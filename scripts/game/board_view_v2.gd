@@ -31,11 +31,21 @@ var _drag_px := 0.0
 var _pointer := Vector2.ZERO
 var _dragging := false
 var _exits: Array[Dictionary] = []
-## Presentation queue: committed engine events are played as brief, ordered flashes.
-## The queue never changes PuzzleState; it only animates transitions the engine already
-## committed. reconcile() drops it so Undo/Restart redraw the authoritative state.
+## Presentation queue (M1.2 plan R1). `state` stays the authoritative PuzzleState and
+## drives geometry; `_shown` holds the mechanic flags the player has seen so far (gate
+## mode / counter / phase, blocker, reveal). Each queued step copies one event's
+## end-visual from `state` into `_shown`, so the picture never runs ahead of the animation
+## and nothing here ever writes PuzzleState. Draining every step lands exactly on `state`.
+var _shown: PuzzleState = null
+var _steps: Array[Dictionary] = []
+var _step_t := 0.0
+var _step_begun := false
 var _flashes: Array[Dictionary] = []
+const STEP_MOVE := 0.18
+const STEP_EXIT := 0.34
+const STEP_EVENT := 0.30
 const FLASH_TIME := 0.30
+const SHOWN_EVENTS := [PuzzleEvent.GATE_COUNTER_CHANGED, PuzzleEvent.GATE_UNLOCKED, PuzzleEvent.BLOCKER_REMOVED, PuzzleEvent.PIECE_REVEALED]
 
 func note_exit(piece_id: String, direction: String) -> void:
 	if state == null or not state.pieces.has(piece_id):
@@ -61,29 +71,113 @@ func set_locked(locked: bool) -> void:
 		_dragging = false
 		_drag_id = ""
 
-## Enqueue committed engine events (in their emitted, priority-sorted order) as ordered
-## transition flashes: gate unlock / counter change, piece reveal, blocker removal.
-func queue_events(events: Array) -> void:
+## Present one committed action as an ordered sequence. Call after show_state() has
+## installed the new authoritative state. `previous` is the state before the commit; it is
+## duplicated, never mutated (the session keeps it as its undo snapshot). Steps: the move
+## itself, then each mechanic event in PuzzleEvent.sort_stable order (plan R1).
+func begin_transition(previous: PuzzleState, events: Array, leaving: bool) -> void:
+	fast_forward()
+	_shown = previous.duplicate()
+	_steps.append({"kind": "move", "subject": "", "time": STEP_EXIT if leaving else STEP_MOVE})
 	for event in PuzzleEvent.sort_stable(events):
 		var kind := str(event.type)
-		if kind != PuzzleEvent.GATE_UNLOCKED and kind != PuzzleEvent.GATE_COUNTER_CHANGED \
-				and kind != PuzzleEvent.PIECE_REVEALED and kind != PuzzleEvent.BLOCKER_REMOVED:
-			continue
-		var pos = _event_center(kind, str(event.subject_id))
-		if pos != null:
-			_flashes.append({"pos": pos, "t": 0.0})
+		if kind in SHOWN_EVENTS:
+			_steps.append({"kind": kind, "subject": str(event.subject_id), "time": STEP_EVENT})
+	_step_t = 0.0
+	_step_begun = false
 	queue_redraw()
 
-## True while transition flashes are still playing (used to hold the input lock).
-func flashes_active() -> bool:
-	return not _flashes.is_empty()
+## True while queued steps remain; the controller keeps input locked until this is false.
+func transition_active() -> bool:
+	return not _steps.is_empty()
 
-## Drop all transient presentation (flashes, exit slides) so the next redraw is the
-## fully-settled authoritative state. Used by Undo / Restart and any interruption.
-func reconcile() -> void:
+## Pending step kinds in play order (tests and diagnostics).
+func pending_steps() -> Array:
+	var out: Array = []
+	for step in _steps:
+		out.append(str(step["kind"]))
+	return out
+
+## Mechanic flags currently on screen: the presentation copy mid-transition, otherwise the
+## authoritative state.
+func shown_state() -> PuzzleState:
+	return _shown if _shown != null else state
+
+## Apply every pending step's end-visual at once. Steps copy from `state`, so this lands
+## exactly on the authoritative picture; it only skips tweens and never writes PuzzleState.
+func fast_forward() -> void:
+	if _shown != null:
+		for step in _steps:
+			_apply_step(step)
+	_steps.clear()
+	_step_t = 0.0
+	_step_begun = false
+	_shown = null
 	_flashes.clear()
-	_exits.clear()
 	queue_redraw()
+
+## Settle any transition and drop exit slides so the next redraw is the authoritative state.
+## Used by Undo / Restart / level load and any interruption (plan R2).
+func reconcile() -> void:
+	fast_forward()
+	_exits.clear()
+
+## Advance the queue by `delta` seconds. A move step applies its visual (gate phase) once the
+## piece has landed; an event step applies its visual, with a ring, as it begins. A long
+## frame drains several steps at once instead of stalling.
+func advance_transition(delta: float) -> void:
+	if _steps.is_empty():
+		return
+	if not _step_begun:
+		_begin_step(_steps[0])
+	_step_t += delta
+	while not _steps.is_empty() and _step_t >= float(_steps[0]["time"]):
+		_step_t -= float(_steps[0]["time"])
+		var done: Dictionary = _steps.pop_front()
+		_step_begun = false
+		if str(done["kind"]) == "move":
+			_apply_step(done)
+		if not _steps.is_empty():
+			_begin_step(_steps[0])
+	if _steps.is_empty():
+		_step_t = 0.0
+		_shown = null
+	queue_redraw()
+
+func _begin_step(step: Dictionary) -> void:
+	_step_begun = true
+	var kind := str(step["kind"])
+	if kind == "move":
+		return
+	_apply_step(step)
+	var pos = _event_center(kind, str(step["subject"]))
+	if pos != null:
+		_flashes.append({"pos": pos, "t": 0.0})
+
+## Copy one event's end-visual from the authoritative state into the presentation copy.
+## shortcut: a counter is shown at its committed value, so two decrements of one gate in a
+## single commit read as one change; step counters through if a level ever does that.
+func _apply_step(step: Dictionary) -> void:
+	if _shown == null or state == null:
+		return
+	var subject := str(step["subject"])
+	match str(step["kind"]):
+		"move":
+			for gid in state.gates.keys():
+				if state.gates[gid].has("phase") and _shown.gates.has(gid):
+					_shown.gates[gid]["phase"] = int(state.gates[gid]["phase"])
+		PuzzleEvent.GATE_COUNTER_CHANGED:
+			if state.gates.has(subject) and _shown.gates.has(subject):
+				_shown.gates[subject]["counter_remaining"] = int(state.gates[subject]["counter_remaining"])
+		PuzzleEvent.GATE_UNLOCKED:
+			if state.gates.has(subject) and _shown.gates.has(subject):
+				_shown.gates[subject]["mode"] = str(state.gates[subject]["mode"])
+		PuzzleEvent.BLOCKER_REMOVED:
+			if state.blockers.has(subject) and _shown.blockers.has(subject):
+				_shown.blockers[subject]["active"] = bool(state.blockers[subject]["active"])
+		PuzzleEvent.PIECE_REVEALED:
+			if state.pieces.has(subject) and _shown.pieces.has(subject):
+				_shown.pieces[subject]["revealed"] = bool(state.pieces[subject]["revealed"])
 
 func _event_center(kind: String, subject: String):
 	var board: Dictionary = definition.get("board", {})
@@ -163,6 +257,7 @@ func _process(delta: float) -> void:
 				live.append(flash)
 		_flashes = live
 		queue_redraw()
+	advance_transition(delta)
 	if state == null:
 		return
 	_layout()
@@ -205,6 +300,10 @@ func _draw() -> void:
 	if state == null or definition.is_empty():
 		return
 	_layout()
+	# Before the container lays the board out, cells are a pixel or less: nothing to draw,
+	# and text glyphs would be asked for a zero font size.
+	if _cell < 4.0:
+		return
 	var board: Dictionary = definition.get("board", {})
 	var cols := int(board.get("cols", 1))
 	var rows := int(board.get("rows", 1))
@@ -226,11 +325,13 @@ func _draw() -> void:
 	for gate in definition.get("gates", []):
 		if typeof(gate) == TYPE_DICTIONARY:
 			_draw_gate(gate, cols, rows)
+	# Mechanic flags come from what the player has seen so far; geometry stays authoritative.
+	var flags := shown_state()
 	for blocker in definition.get("blockers", []):
 		if typeof(blocker) != TYPE_DICTIONARY:
 			continue
 		var bid := str(blocker.get("id", ""))
-		if state.blockers.has(bid) and bool(state.blockers[bid]["active"]):
+		if flags.blockers.has(bid) and bool(flags.blockers[bid]["active"]):
 			var bcell = blocker.get("cell", null)
 			if typeof(bcell) == TYPE_ARRAY and bcell.size() == 2:
 				_draw_blocker(Vector2i(int(bcell[0]), int(bcell[1])))
@@ -243,7 +344,7 @@ func _draw() -> void:
 			continue
 		var origin: Vector2i = state.pieces[id]["pos"]
 		# A hidden piece occupies its cells but shows no colour until revealed.
-		if not bool(state.pieces[id].get("revealed", true)):
+		if flags.pieces.has(id) and not bool(flags.pieces[id].get("revealed", true)):
 			for offset in geometry[id]["offsets"]:
 				_draw_hidden(origin + offset)
 			continue
@@ -280,10 +381,10 @@ func _draw_preview(geometry: Dictionary) -> void:
 	_draw_piece(_drag_id, geometry[_drag_id], base, 0.15)
 
 func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
-	# Static visual derived from the authoritative gate state: scheduled colour for a
-	# color-switching gate, a locked style + lock glyph while LOCKED, and a counter badge.
+	# Visual derived from the gate state the player has seen (shown_state): scheduled colour
+	# for a color-switching gate, a locked style + lock glyph while LOCKED, a counter badge.
 	var gid := str(gate.get("id", ""))
-	var gstate: Dictionary = state.gates.get(gid, {})
+	var gstate: Dictionary = shown_state().gates.get(gid, {})
 	var locked := str(gstate.get("mode", "OPEN")) == "LOCKED"
 	var color_name := "red"
 	if GateRules.is_color_switching(gate):

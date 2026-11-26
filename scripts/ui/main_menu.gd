@@ -18,7 +18,9 @@ func _build() -> void:
 	safe.add_child(center)
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", 16)
+	# Dev builds stack four extra QA entries; a tighter gap keeps them inside the bottom
+	# safe inset on 360x800. The player-facing menu keeps its 16px spacing.
+	column.add_theme_constant_override("separation", 12 if DevAccess.enabled() else 16)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.add_child(column)
 	center.resized.connect(func() -> void:

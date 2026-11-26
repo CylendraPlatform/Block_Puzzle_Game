@@ -48,8 +48,9 @@ func _initialize() -> void:
 
 	# Compile-smoke the QA screen scripts + catalog (headless can't render, but this catches
 	# syntax/contract errors) and confirm the advanced QA catalog is campaign-separate.
-	_ok(load("res://scripts/game/pilot_game.gd") != null, "PilotGame compiles")
-	_ok(load("res://scripts/game/advanced_qa.gd") != null, "AdvancedQA compiles")
+	# can_instantiate() is false when compilation failed; a bare load() != null is not.
+	_ok((load("res://scripts/game/pilot_game.gd") as Script).can_instantiate(), "PilotGame compiles")
+	_ok((load("res://scripts/game/advanced_qa.gd") as Script).can_instantiate(), "AdvancedQA compiles")
 	_ok(AdvancedCatalog.list_paths().size() == 3, "advanced QA catalog lists the 3 advanced levels")
 
 	print("== done: %d failure(s) ==" % _fails)
