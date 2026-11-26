@@ -13,7 +13,7 @@ locks/keys are out of scope.
 |---|---|
 |Can the shipped 100 levels run on v2 unchanged?|**97 of 100** showed identical legal moves on every compared state. This is **bounded differential evidence, not an exhaustive proof** (§3.1). The other 3 (021, 080, 090) differ only by a legacy pass-through-exit defect (§3.2); all 3 stay solvable under v2 at exactly their stored `par`.|
 |Is existing progress preserved?|Yes. `progress.save` maps deterministically to stable ids (every file's `id` = sorted position + 1). It is never deleted, and is merged into the new store on every load (§5).|
-|Rollback?|An engine flag plus a non-destructive save design: the v1 file is kept and dual-written for Classic while the rollback window is open; the new store max-merges it back on every load (§5.5).|
+|Rollback?|An engine flag plus a non-destructive save design: the legacy file is kept, dual-written for Classic, max-merged back and resynchronised at every launch. Switching engines inside the new build is fully covered; running an older binary is guaranteed only after the verified `prepare_for_downgrade()` preflight (§5.5).|
 |New content?|Chapter 1: 20 original levels, independently accessible, separate progress and stars; becomes the default Play campaign only after its acceptance (§4.2, §7).|
 |Latest `main` CI|Run `45813224305` on `dc95d45`: **success** (2026-11-26 11:44→11:53 UTC).|
 
@@ -183,38 +183,53 @@ Example with synthetic values:
 ### 5.3 Write protocol (same for v2 and the v1 dual-write)
 1. Serialise; write `X.tmp`; flush; close; check the file error.
 2. Read `X.tmp` back; it must equal the written bytes exactly. Abort on failure.
-3. If `X` exists and is valid (checksum for v2, parse/shape for v1): delete `X.bak`, then
-   rename `X` → `X.bak`. If `X` exists but is invalid, delete it instead, so a corrupt file
-   never replaces a good backup.
-4. Rename `X.tmp` → `X`.
+3. If `X` exists and is valid (checksum for v2, parse/shape for v1): **copy** `X` → `X.bak`.
+   `X` stays in place. A corrupt `X` is not copied, so it never replaces a good backup.
+4. Rename `X.tmp` over `X`.
 
-No step overwrites a file by rename. Windows refuses rename onto an existing file, so the
-protocol never relies on it; on Android (app-internal ext4/f2fs storage) a rename inside one
-directory is atomic, and the same protocol is used for both.
+The store never deletes or moves the live file itself, so a reader that only knows `X` — the
+legacy `Catalog` or an older binary — never finds it missing because of these steps.
+*(Revision 2 moved `X` to `X.bak` before the final rename; review of PR #16 showed that a
+crash between the two left `progress.save` absent, which the legacy `Catalog` reads as a fresh
+game. Fixed in `f8d19db`.)*
 
-**Recovery on load** — candidates `X`, `X.tmp`, `X.bak`; the valid one with the highest `seq`
-wins; if it was not `X`, the store immediately rewrites `X` from it (self-heal):
+Step 4 is the platform rename. On Android (app-internal ext4/f2fs, POSIX `rename`) replacing an
+existing file is atomic. On Windows, Godot's rename onto an existing file was verified to
+succeed and replace it, but Godot does not document it as atomic; a crash *inside* that single
+call could leave `X` absent with valid `X.tmp` and `X.bak`, which the next launch repairs (§5.5).
 
-| Interrupted at | Files left | Loaded |
+**Recovery on load** — v2: candidates `X`, `X.tmp`, `X.bak`; the valid one with the highest
+`seq` wins and the primary is rewritten from it (self-heal). v1: every legacy copy is
+max-merged into Classic and `progress.save` is resynchronised (§5.4).
+
+| Interrupted at (tested with a crash seam after steps 2 and 3, both files) | Files left | v2 loads |
 |---|---|---|
 |during step 1|`X` valid, `X.tmp` torn|`X` (torn tmp fails validation)|
-|after 1, before 3|`X` valid, `X.tmp` valid (newer)|`X.tmp`|
-|inside step 3 (after delete, before rename)|`X` valid, `X.tmp` valid|`X.tmp`|
-|after step 3, before 4|`X.bak` (old), `X.tmp` (new), no `X`|`X.tmp`|
-|after step 4|`X` (new), `X.bak` (old)|`X`|
+|after step 2|`X` valid, `X.tmp` valid (newer)|`X.tmp`|
+|during or after step 3|`X` valid, `X.bak` valid or torn, `X.tmp` valid (newer)|`X.tmp`|
+|inside step 4 — Android|old `X` or new `X` (atomic)|`X`|
+|inside step 4 — Windows (not documented atomic)|possibly no `X`; `X.tmp` new, `X.bak` old|`X.tmp`|
+|after step 4|`X` new, `X.bak` previous|`X`|
 |`X` corrupted later (disk error)|`X` invalid, `X.bak` valid|`X.bak`|
-|all v2 files invalid or missing|—|fresh migration from `progress.save`; never an empty store while v1 data exists|
+|all v2 files invalid or missing|—|fresh migration from the legacy copies; never an empty store while legacy data exists|
 
 **Durability limit:** GDScript has no `fsync`. A power loss right after a write can lose that
 write (the OS may not have flushed it), but it can never produce a store that loads corrupt
 data, because every candidate is checksum-validated and the previous good copy is kept.
 
 ### 5.4 Merge, migration and dual-write rules
-- **Every load max-merges `progress.save` into Classic:** `unlocked = max(v2, v1)`, each
-  star = max(v2, v1). Progress only grows. This one rule covers first migration, a rollback
-  to the legacy build followed by a re-upgrade, and a failed dual-write.
-- First run (no valid v2 file): build the store from `progress.save` (or empty), record
-  `migration`, write `progress_v2.save` immediately. `progress.save` is **not** rewritten.
+- **Every load max-merges the legacy copies into Classic** — `progress.save` and any
+  `progress.save.tmp` / `.bak` an interrupted dual-write left: `unlocked = max`, each star =
+  max. Every copy is progress the player really reached, so progress only grows. This one rule
+  covers first migration, a rollback followed by a re-upgrade, and a failed or interrupted
+  dual-write.
+- **Every load resynchronises `progress.save`:** if the file, read exactly as the legacy
+  `Catalog` reads it, does not show the Classic progress (missing, corrupt or behind), the
+  store rewrites it with the §5.3 protocol (`v1_resynced`); a failed rewrite sets
+  `pending_v1` and is retried.
+- First run (no valid v2 file): build the store from the legacy copies (or empty), record
+  `migration`, write `progress_v2.save` immediately. `progress.save` is rewritten only if it
+  differs from what Classic would write (e.g. malformed entries were dropped).
 - Re-running is idempotent: the same inputs give the same campaigns; nothing is written when
   nothing changed.
 - Malformed v1 values are ignored with a warning, never a crash: non-integer or out-of-range
@@ -232,15 +247,30 @@ data, because every candidate is checksum-validated and the previous good copy i
 - A newer `save_version` (> 2) puts the store in **read-only** mode: nothing is written, and
   older files are left untouched.
 
-### 5.5 Rollback
-- Engine flag `gameplay/engine` = `legacy` | `v2`. Rolling back is one flag change and a
-  rebuild; legacy `Game.tscn`, `Rules`, `BoardView` and `Catalog` stay unchanged in the tree
-  until the rollback window is closed by a separate approved PR.
-- A rolled-back build reads `progress.save`, which dual-write kept current, so it shows the
-  player's Classic progress. When the player re-upgrades, the load merge brings any progress
-  made on the legacy build back into v2.
-- Chapter 1 progress lives only in `progress_v2.save`; a legacy build ignores it and a later
-  re-upgrade finds it intact.
+### 5.5 Rollback and legacy compatibility (tested guarantees)
+
+What the legacy `Catalog` does, verified by running its real code against an isolated
+folder: a missing or unparseable `progress.save` loads as `unlocked 0` with no stars (the game
+looks fresh); an older file loads its older values. It never reads `.tmp`, `.bak` or
+`progress_v2.save`.
+
+| Scenario | Guarantee | Evidence (`test_progress_store`) |
+|---|---|---|
+|**Engine switch inside the new build** (`gameplay/engine = legacy`)|`ProgressStore.open()` runs at startup, before any route (wired in M1.3-C), and resynchronises `progress.save`, so the legacy engine reads exactly the Classic progress — also after an interrupted or failed dual-write, or a corrupt or older file.|reported crash layout; crash points; corrupt/older v1; resync after failed dual-write|
+|**Recovery after an interrupted dual-write**|The next launch of the new build restores everything: v2 recovery takes the newest valid copy, Classic merges every legacy copy, `progress.save` is rewritten. No tested scenario loses the last valid copy: the live file stays in place during writes, a good `.bak` is never overwritten by a corrupt file, and `.tmp` is kept until promoted.|crash after steps 2 and 3 on both files; last-valid-copy assertion|
+|**Downgrade to an older binary** (an APK without `ProgressStore`)|Guaranteed only when `prepare_for_downgrade()` returned `ok` in the last session of the new build. Without it: on Android a crash during a write leaves `progress.save` either the previous or the new valid version (at most one completion behind); on Windows a crash inside the final rename could leave it absent until the new build runs again. An older binary has no recovery and writes with the legacy non-atomic code.|preflight: `ok`; refused with a reason when the file cannot be made current; refused for a newer save version|
+
+- A store rollback ships as a new release (higher version code) built with
+  `gameplay/engine = legacy`; it still contains `ProgressStore`, so the first row applies.
+  Installing an actual older APK happens only by sideloading (development/QA); do it only after
+  `prepare_for_downgrade()` reports `ok`.
+- `prepare_for_downgrade()` rewrites `progress.save` from Classic if needed and verifies it reads
+  back as the legacy `Catalog` reads it. It never reports success it did not verify.
+- When the player re-upgrades, the load merge brings any Classic progress made on the legacy
+  build back into v2. Chapter 1 progress lives only in `progress_v2.save`; a legacy build ignores
+  it and a re-upgrade finds it intact.
+- Engine flag `gameplay/engine` = `legacy` | `v2`; legacy `Game.tscn`, `Rules`, `BoardView` and
+  `Catalog` stay unchanged until the rollback window is closed by a separate approved PR.
 
 ## 6. Unified gameplay architecture
 
@@ -330,6 +360,11 @@ Passing both gates plus owner sign-off is what moves the launch sequence to phas
   checksum tamper); dual-write output readable by the legacy `Catalog`; v1 dual-write failure
   (pending flag, retry); v2 write failure (state kept, v1 still written, recovered by merge);
   rollback (legacy-build progress merged back, Chapter 1 intact); newer version read-only;
+  legacy compatibility judged with the **real legacy `Catalog` code** (path redirected to an
+  isolated folder): the reported crash layout (with and without a v2 file), a crash after
+  steps 2 and 3 on both files with a last-valid-copy check, corrupt and older
+  `progress.save`, resync after a failed dual-write, and `prepare_for_downgrade()` (ok /
+  refused with a reason / refused for a newer version);
   repeated saves (rename without overwrite); real `user://` saves untouched by the test.
 - **M1.3-B** `test_classic_equivalence`: §3 comparison as a committed test (bounded, widened);
   021/080/090 expected to differ only via the pass-through pattern; v2 solves them at `par`
@@ -373,7 +408,12 @@ Passing both gates plus owner sign-off is what moves the launch sequence to phas
 - Rule correction for 021/080/090 changes available moves; mitigated by `par` regression and
   documentation (D1).
 - No `fsync` from GDScript: a power loss can drop the last write, never corrupt the store (§5.3).
-- Android filesystem behaviour is covered by design, not by an automated device test; the
-  store's tests run on desktop, and on-device evidence comes from M1.3-D acceptance.
+- Godot's Windows rename onto an existing file is not documented as atomic: a crash inside
+  that call can leave `progress.save` absent until the next launch repairs it; an older binary
+  started before that would show no progress (§5.5). Desktop/development only.
+- Android filesystem behaviour (atomic POSIX rename) is covered by design, not by an automated
+  device test; the store's tests run on desktop, and on-device evidence comes from M1.3-D.
+- An older binary has no recovery logic and writes with the legacy non-atomic code; running one
+  is only supported after a verified `prepare_for_downgrade()`.
 - Two engines in the tree during the rollback window — time-boxed; removal is a separate PR.
 - Visual identity change for existing players — gated by device visual sign-off (D3).
