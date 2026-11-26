@@ -47,7 +47,7 @@ jobs:
           tests="test_rules validate_all test_services test_drag test_v2_foundation test_v2_solver
             test_v2_session test_v2_pilot test_m1_1_phase_a test_m1_1_phase_b test_m1_1_phase_c
             test_m1_1_phase_d test_m1_1_fixes test_m1_2_view test_m1_2_sequencing
-            test_m1_2_dev_solve_lifecycle test_td36_benchmarks test_td36_metrics
+            test_m1_2_dev_solve_lifecycle test_progress_store test_td36_benchmarks test_td36_metrics
             solve_benchmarks solve_advanced_benchmarks test_v2_campaign"
           failed=""
           for t in $tests; do
