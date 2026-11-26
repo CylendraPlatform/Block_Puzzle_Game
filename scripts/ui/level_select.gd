@@ -38,14 +38,19 @@ func _build() -> void:
 	_grid.add_theme_constant_override("v_separation", SEP)
 	_scroll.add_child(_grid)
 
-	var paths := Catalog.list_paths()
-	var unlocked := Catalog.load_unlocked()
-	for i in paths.size():
+	# Classic only: Chapter 1 stays hidden until it has content (M1.3-E).
+	var v2 := GameRoute.uses_v2()
+	var levels := CampaignCatalog.levels(CampaignCatalog.CLASSIC)
+	var store: ProgressStore = Progress.get_store() if v2 else null
+	var unlocked := store.unlocked(CampaignCatalog.CLASSIC) if v2 else Catalog.load_unlocked()
+	var target := GameRoute.game_scene()
+	for i in levels.size():
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(MIN_CELL, MIN_CELL)
 		UIKit.apply_compact(b)
 		b.add_theme_font_size_override("font_size", 18)
-		var stars := Catalog.get_stars(i)
+		# v2 reads stars by stable id; the legacy route keeps its index-keyed progress.save.
+		var stars := store.stars(CampaignCatalog.CLASSIC, str(levels[i]["id"])) if v2 else Catalog.get_stars(i)
 		var num := str(i + 1)
 		if i > unlocked:
 			b.disabled = true
@@ -62,7 +67,8 @@ func _build() -> void:
 				if Audio:
 					Audio.sfx("tap")
 				Settings.selected_level = idx
-				get_tree().change_scene_to_file("res://scenes/Game.tscn"))
+				Settings.custom_level = null
+				GameRoute.go(get_tree(), target))
 		_grid.add_child(b)
 	_fit_grid()
 
@@ -90,4 +96,4 @@ func _fit_grid() -> void:
 func _on_back() -> void:
 	if Audio:
 		Audio.sfx("tap")
-	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	GameRoute.go(get_tree(), GameRoute.MENU_SCENE)

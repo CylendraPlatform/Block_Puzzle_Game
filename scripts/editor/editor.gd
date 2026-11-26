@@ -225,7 +225,7 @@ func _on_test() -> void:
 	obj["id"] = 0
 	obj["name"] = "Custom"
 	Settings.custom_level = obj
-	get_tree().change_scene_to_file("res://scenes/Game.tscn")
+	GameRoute.go(get_tree(), GameRoute.game_scene())
 
 func _on_clear() -> void:
 	_st = {"cols": _st["cols"], "rows": _st["rows"], "walls": [], "blocks": [], "gates": []}
