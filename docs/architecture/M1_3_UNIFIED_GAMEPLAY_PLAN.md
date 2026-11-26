@@ -89,6 +89,15 @@ It shows the rules agree near the start and along an optimal solution, where pla
 concentrates. M1.3-B keeps it as a regression test and widens coverage (deeper BFS for small
 levels and a seeded random walk for large ones); a later full-proof check is optional.
 
+> **M1.3-B update (wider coverage).** `test/test_classic_equivalence.gd` compares 400 BFS
+> states, the shortest legacy solution and 12 seeded random walks per level. It confirms the
+> pass-through exit is the **only** kind of difference, but finds it reachable in **11**
+> levels, not 3: 021, 024, 044, 046, 061, 076, 080, 081, 086, 088, 090. The 8 new ones only
+> reach it off the par route (their shortest legacy solution replays unchanged in v2 and wins
+> in `par`); only 021 and 090 use it on the shortest legacy solution. D1 is unchanged: no
+> level file is edited, every level keeps its `par`, and the exact 11-level set is pinned by
+> the test. See `docs/LEVEL_SYSTEM.md` (exit rule).
+
 | Level | Board | `par` | Where it differs | v2 optimum (`SolverV2`, cap 200,000, witness-replayed) |
 |---|---|---|---|---|
 |021|6×5, 2 pieces|3|4th compared state|SOLVED, 3 moves (26 states)|
