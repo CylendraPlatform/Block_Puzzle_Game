@@ -28,7 +28,12 @@ var read_only := false
 var load_source := ""
 ## The last v1 dual-write failed; the next save retries it.
 var pending_v1 := false
+## open() rewrote progress.save because it was missing, corrupt or behind Classic.
+var v1_resynced := false
 var warnings: PackedStringArray = []
+## Test seam, never set in production: "<file>:<step>" stops _atomic_write at that step as if
+## the process died there (steps: after_tmp, after_backup), e.g. "progress.save:after_backup".
+var _crash_at := ""
 
 ## Loads (with recovery, migration and the v1 merge) from `base_dir`.
 static func open(base_dir := "user://", classic_levels := 100) -> ProgressStore:
@@ -76,6 +81,22 @@ func save() -> Dictionary:
 		if pending_v1:
 			warnings.append("progress.save dual-write failed (%s); will retry" % error_string(v1))
 	return {"v2": v2, "v1": v1}
+
+## Verified preflight before installing an older, legacy-only build: makes progress.save hold
+## exactly the Classic progress and confirms it reads back the way the legacy Catalog reads it.
+## {"ok": false, "reason"} means the downgrade is not safe yet; nothing is ever claimed on failure.
+func prepare_for_downgrade() -> Dictionary:
+	if read_only:
+		return {"ok": false, "reason": "a newer save_version is present; this build cannot vouch for it"}
+	if not _v1_matches():
+		var err := _write_v1()
+		if err != OK:
+			pending_v1 = true
+			return {"ok": false, "reason": "progress.save write failed (%s)" % error_string(err)}
+	if not _v1_matches():
+		return {"ok": false, "reason": "progress.save does not read back as the Classic progress"}
+	pending_v1 = false
+	return {"ok": true, "reason": "", "unlocked": unlocked(CLASSIC), "stars": int(_campaign(CLASSIC)["stars"].size())}
 
 # --- loading -------------------------------------------------------------------------
 
@@ -134,6 +155,21 @@ func _load() -> void:
 		var err := _write_v2()
 		if err != OK:
 			warnings.append("could not persist loaded progress (%s)" % error_string(err))
+	_resync_v1()
+
+## Heals progress.save at every launch: if it is missing, corrupt, or behind Classic (an
+## interrupted or failed dual-write, or a crash mid-write), rewrite it from Classic so the
+## legacy engine or an older binary sees the player's real progress.
+func _resync_v1() -> void:
+	if not dual_write_v1 or _v1_matches():
+		return
+	var err := _write_v1()
+	v1_resynced = err == OK
+	pending_v1 = err != OK
+	if err == OK:
+		warnings.append("progress.save was out of date and has been rewritten from Classic")
+	else:
+		warnings.append("progress.save is out of date and could not be rewritten (%s)" % error_string(err))
 
 ## Max-merge of legacy progress into Classic. Returns true when anything grew.
 func _merge_classic(v1: Dictionary) -> bool:
@@ -150,20 +186,36 @@ func _merge_classic(v1: Dictionary) -> bool:
 			grew = true
 	return grew
 
-## Reads progress.save into {"unlocked", "stars": {legacy-N: 1..3}}; {} if missing/unreadable.
-## Malformed values are skipped or clamped with a warning, never fatal.
+## Legacy progress from every legacy copy — progress.save plus the .tmp / .bak an interrupted
+## dual-write can leave — max-merged ({"unlocked", "stars": {legacy-N: 1..3}}; {} if none).
+## Each copy is progress the player really reached, so taking the maximum never invents any.
 func _read_v1() -> Dictionary:
-	var path := _path(V1_FILE)
+	var out := {}
+	for suffix in ["", ".tmp", ".bak"]:
+		var one := _read_v1_file(_path(V1_FILE + suffix))
+		if one.is_empty():
+			continue
+		if out.is_empty():
+			out = one
+			continue
+		out["unlocked"] = maxi(int(out["unlocked"]), int(one["unlocked"]))
+		for id in one["stars"].keys():
+			out["stars"][id] = maxi(int(out["stars"].get(id, 0)), int(one["stars"][id]))
+	return out
+
+## One legacy file. Malformed values are skipped or clamped with a warning, never fatal.
+func _read_v1_file(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
+	var label := path.get_file()
 	var raw: Variant = _parse_json(FileAccess.get_file_as_string(path))
 	if not raw is Dictionary:
-		warnings.append("progress.save is not valid JSON; ignored")
+		warnings.append("%s is not valid JSON; ignored" % label)
 		return {}
 	var out := {"unlocked": 0, "stars": {}}
 	var u: Variant = _whole(raw.get("unlocked", 0))
 	if u == null or int(u) < 0:
-		warnings.append("progress.save unlocked is invalid; using 0")
+		warnings.append("%s unlocked is invalid; using 0" % label)
 	else:
 		out["unlocked"] = mini(int(u), classic_count)
 	var raw_stars: Variant = raw.get("stars", {})
@@ -172,14 +224,14 @@ func _read_v1() -> Dictionary:
 			var index := str(key)
 			var value: Variant = _whole(raw_stars[key])
 			if not index.is_valid_int() or int(index) < 0 or int(index) >= classic_count:
-				warnings.append("progress.save star key %s skipped" % index)
+				warnings.append("%s star key %s skipped" % [label, index])
 				continue
 			if value == null or int(value) <= 0:
-				warnings.append("progress.save star value for %s skipped" % index)
+				warnings.append("%s star value for %s skipped" % [label, index])
 				continue
 			out["stars"][classic_id(int(index))] = mini(int(value), MAX_STARS)
 	elif raw_stars != null:
-		warnings.append("progress.save stars is not a map; ignored")
+		warnings.append("%s stars is not a map; ignored" % label)
 	return out
 
 ## Validates one v2 file. Returns {} when invalid, {"newer": true, ...} for a newer version,
@@ -264,8 +316,14 @@ func _write_v2() -> Error:
 		var parsed := _parse_v2(text)
 		return not parsed.is_empty() and not parsed.has("newer"))
 
-## Legacy format exactly as Catalog writes it: {"unlocked", "stars": {"<0-based index>": n}}.
+## Writes progress.save in exactly the format the legacy Catalog writes.
 func _write_v1() -> Error:
+	return _atomic_write(V1_FILE, JSON.stringify(_legacy_payload()), func(text: String) -> bool:
+		var parsed: Variant = _parse_json(text)
+		return parsed is Dictionary and parsed.has("unlocked") and parsed.has("stars"))
+
+## Classic as the legacy Catalog stores it: {"unlocked", "stars": {"<0-based index>": n}}.
+func _legacy_payload() -> Dictionary:
 	var c := _campaign(CLASSIC)
 	var legacy_stars := {}
 	for id in c["stars"].keys():
@@ -276,15 +334,47 @@ func _write_v1() -> Error:
 		if not number.is_valid_int() or int(number) < 1 or int(number) > classic_count:
 			continue
 		legacy_stars[str(int(number) - 1)] = int(c["stars"][id])
-	var payload := {"unlocked": mini(int(c["unlocked"]), classic_count), "stars": legacy_stars}
-	return _atomic_write(V1_FILE, JSON.stringify(payload), func(text: String) -> bool:
-		var parsed: Variant = _parse_json(text)
-		return parsed is Dictionary and parsed.has("unlocked") and parsed.has("stars"))
+	return {"unlocked": mini(int(c["unlocked"]), classic_count), "stars": legacy_stars}
 
-## Crash-safe replace (plan §5.3): write .tmp, read it back (must match byte for byte), move
-## the current file to .bak, then rename .tmp into place. Never renames onto an existing file.
-## `is_valid(text)` decides whether the current file is worth keeping as .bak: a corrupt
-## current file is deleted instead, so it never replaces a good backup.
+## What the legacy Catalog.load_progress() returns for a progress.save text ("" = missing):
+## defaults {0, {}} when missing or unparseable, otherwise its unlocked and stars map.
+static func _legacy_view(text: String) -> Dictionary:
+	var out := {"unlocked": 0, "stars": {}}
+	var data: Variant = _parse_json(text)
+	if data is Dictionary:
+		var u: Variant = _whole(data.get("unlocked", 0))
+		out["unlocked"] = int(u) if u != null else 0
+		if data.get("stars", null) is Dictionary:
+			out["stars"] = data["stars"]
+	return out
+
+## True when progress.save, read the way the legacy Catalog reads it, shows exactly Classic.
+func _v1_matches() -> bool:
+	var path := _path(V1_FILE)
+	var view := _legacy_view(FileAccess.get_file_as_string(path) if FileAccess.file_exists(path) else "")
+	var want := _legacy_payload()
+	if int(view["unlocked"]) != int(want["unlocked"]):
+		return false
+	var keys := {}
+	for k in view["stars"].keys():
+		keys[str(k)] = true
+	for k in want["stars"].keys():
+		keys[str(k)] = true
+	for k in keys.keys():
+		var have: Variant = _whole(view["stars"].get(k, 0))
+		if have == null or int(have) != int(want["stars"].get(k, 0)):
+			return false
+	return true
+
+## Crash-safe replace (plan §5.3):
+##   1. write X.tmp and read it back (must match byte for byte);
+##   2. if the current X is valid, COPY it to X.bak — X itself stays in place;
+##   3. rename X.tmp over X.
+## This code never deletes or moves the live file first, so a reader that only knows X (the
+## legacy Catalog or an older binary) never finds it missing because of our own steps.
+## Step 3 is the platform rename: POSIX rename (Android) replaces atomically; on Windows Godot's
+## rename replaces an existing file but is not documented as atomic. A corrupt current X is
+## never copied over a good X.bak.
 func _atomic_write(name: String, text: String, is_valid: Callable) -> Error:
 	var target := _path(name)
 	var tmp := target + ".tmp"
@@ -301,19 +391,14 @@ func _atomic_write(name: String, text: String, is_valid: Callable) -> Error:
 		return write_err
 	if FileAccess.get_file_as_string(tmp) != text:
 		return ERR_FILE_CORRUPT
-	if FileAccess.file_exists(target):
-		if bool(is_valid.call(FileAccess.get_file_as_string(target))):
-			if FileAccess.file_exists(bak):
-				var remove_err := DirAccess.remove_absolute(bak)
-				if remove_err != OK:
-					return remove_err
-			var aside_err := DirAccess.rename_absolute(target, bak)
-			if aside_err != OK:
-				return aside_err
-		else:
-			var drop_err := DirAccess.remove_absolute(target)
-			if drop_err != OK:
-				return drop_err
+	if _crash_at == name + ":after_tmp":
+		return ERR_UNAVAILABLE
+	if FileAccess.file_exists(target) and bool(is_valid.call(FileAccess.get_file_as_string(target))):
+		var copy_err := DirAccess.copy_absolute(target, bak)
+		if copy_err != OK:
+			return copy_err
+	if _crash_at == name + ":after_backup":
+		return ERR_UNAVAILABLE
 	return DirAccess.rename_absolute(tmp, target)
 
 # --- helpers -------------------------------------------------------------------------

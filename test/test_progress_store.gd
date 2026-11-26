@@ -30,6 +30,12 @@ func _initialize() -> void:
 	_newer_version_read_only()
 	_repeated_saves()
 	_separate_campaigns()
+	_legacy_view_matches_catalog()
+	_reported_crash_layout()
+	_crash_points()
+	_corrupt_and_older_v1()
+	_resync_after_failed_dual_write()
+	_downgrade_preflight()
 	_remove_tree(ROOT)
 	_ok(_real_digest() == real, "the real user://progress.save and progress_v2.save are untouched")
 	print("== done: %d failure(s) ==" % _fails)
@@ -63,6 +69,35 @@ func _v2_text(seq: int, campaigns: Dictionary) -> String:
 
 func _camps(classic_unlocked: int, classic_stars := {}) -> Dictionary:
 	return {"classic": {"unlocked": classic_unlocked, "stars": classic_stars}, "chapter1": {"unlocked": 0, "stars": {}}}
+
+## The real legacy Catalog source, compiled with only SAVE_PATH pointed into `dir`: what an
+## older binary or the legacy engine would load.
+func _legacy_catalog(dir: String) -> GDScript:
+	var src := FileAccess.get_file_as_string("res://scripts/core/catalog.gd")
+	src = src.replace("class_name Catalog\n", "").replace("const SAVE_PATH := \"user://progress.save\"", "const SAVE_PATH := \"%sprogress.save\"" % dir)
+	var script := GDScript.new()
+	script.source_code = src
+	script.reload()
+	return script
+
+## Legacy Catalog's view as {unlocked, stars{index: int}}.
+func _legacy(dir: String) -> Dictionary:
+	var p: Dictionary = _legacy_catalog(dir).load_progress()
+	var st := {}
+	for k in p["stars"].keys():
+		st[str(k)] = int(p["stars"][k])
+	return {"unlocked": int(p["unlocked"]), "stars": st}
+
+## Highest Classic unlocked among the valid legacy copies (progress.save, .bak).
+func _best_v1_copy(dir: String) -> int:
+	var best := -1
+	for suffix in ["", ".bak"]:
+		if not FileAccess.file_exists(dir + "progress.save" + suffix):
+			continue
+		var v: Variant = _json(dir + "progress.save" + suffix)
+		if v is Dictionary and v.has("unlocked"):
+			best = maxi(best, int(v["unlocked"]))
+	return best
 
 func _real_digest() -> String:
 	return "%s|%s" % [_md5("user://progress.save"), _md5("user://progress_v2.save")]
@@ -256,3 +291,98 @@ func _separate_campaigns() -> void:
 	s.record_completion("classic", "legacy-1", 0, 1)
 	_ok(s.stars("chapter1", "ch1-01") == 3 and s.stars("classic", "legacy-1") == 1 and s.stars("classic", "ch1-01") == 0, "Classic and Chapter 1 stars are independent")
 	_ok(s.unlocked("chapter1") == 1 and s.unlocked("classic") == 1, "each campaign tracks its own unlocked count")
+
+# --- legacy compatibility (M1.3-A review) --------------------------------------------
+
+func _legacy_view_matches_catalog() -> void:
+	var dir := _case("legacy_view")
+	var texts := ["", "{\"unlocked\": 37, \"sta", JSON.stringify({"unlocked": 30, "stars": {"0": 1}}), JSON.stringify({"unlocked": 37, "stars": {"35": 3, "36": 2}})]
+	var agree := true
+	for text in texts:
+		if FileAccess.file_exists(dir + "progress.save"):
+			DirAccess.remove_absolute(dir + "progress.save")
+		if text != "":
+			_write(dir + "progress.save", text)
+		var mine := ProgressStore._legacy_view(text)
+		var theirs := _legacy(dir)
+		var mine_stars := {}
+		for k in mine["stars"].keys():
+			mine_stars[str(k)] = int(mine["stars"][k])
+		agree = agree and int(mine["unlocked"]) == theirs["unlocked"] and mine_stars == theirs["stars"]
+	_ok(agree, "store's legacy view equals the real Catalog for missing, torn, older and current files")
+
+func _reported_crash_layout() -> void:
+	# The db6e492 crash state: progress.save moved to .bak, new .tmp written, final rename not done.
+	var dir := _case("reported_layout")
+	_write(dir + "progress_v2.save", _v2_text(8, _camps(37, {"legacy-36": 3, "legacy-37": 2})))
+	_write(dir + "progress.save.bak", JSON.stringify({"unlocked": 36, "stars": {"35": 1}}))
+	_write(dir + "progress.save.tmp", JSON.stringify({"unlocked": 37, "stars": {"35": 3, "36": 2}}))
+	_ok(_legacy(dir)["unlocked"] == 0, "reproduced: with progress.save absent the legacy Catalog shows no progress")
+	var s := ProgressStore.open(dir)
+	var view := _legacy(dir)
+	_ok(s.v1_resynced and view["unlocked"] == 37 and view["stars"].get("35", 0) == 3 and view["stars"].get("36", 0) == 2, "next launch restores progress.save; the legacy Catalog sees the real progress")
+	var bak: Variant = _json(dir + "progress.save.bak")
+	_ok(bak is Dictionary and int(bak["unlocked"]) == 36, "the old legacy copy in .bak is kept")
+	var no_v2 := _case("reported_layout_no_v2")
+	_write(no_v2 + "progress.save.bak", JSON.stringify({"unlocked": 36, "stars": {"35": 1}}))
+	_write(no_v2 + "progress.save.tmp", JSON.stringify({"unlocked": 37, "stars": {"35": 3, "36": 2}}))
+	var t := ProgressStore.open(no_v2)
+	_ok(t.unlocked("classic") == 37 and t.stars("classic", "legacy-36") == 3 and _legacy(no_v2)["unlocked"] == 37, "even with no v2 file the progress is recovered from the legacy .tmp/.bak")
+
+func _crash_points() -> void:
+	for file in ["progress.save", "progress_v2.save"]:
+		for step in ["after_tmp", "after_backup"]:
+			var tag := "%s:%s" % [file, step]
+			var dir := _case("crash_%s_%s" % [file.replace(".", "_"), step])
+			_write(dir + "progress.save", JSON.stringify({"unlocked": 36, "stars": {"35": 1}}))
+			var s := ProgressStore.open(dir)
+			s._crash_at = tag
+			s.record_completion("classic", "legacy-37", 36, 2)
+			# Simulated process death here: look at the disk before any relaunch.
+			var view := _legacy(dir)
+			_ok(FileAccess.file_exists(dir + "progress.save") and view["unlocked"] >= 36, "%s: progress.save is never missing; the legacy Catalog sees %d (≥ 36)" % [tag, view["unlocked"]])
+			_ok(_best_v1_copy(dir) >= 36, "%s: a valid legacy copy with the last progress survives" % tag)
+			var relaunch := ProgressStore.open(dir)
+			var after := _legacy(dir)
+			_ok(relaunch.unlocked("classic") == 37 and relaunch.stars("classic", "legacy-37") == 2 and after["unlocked"] == 37 and after["stars"].get("36", 0) == 2, "%s: relaunch recovers the completion in v2 and in progress.save" % tag)
+
+func _corrupt_and_older_v1() -> void:
+	var dir := _case("v1_corrupt")
+	var s := ProgressStore.open(dir)
+	s.record_completion("classic", "legacy-37", 36, 2)
+	s.record_completion("classic", "legacy-38", 37, 3)
+	var good_bak := _read(dir + "progress.save.bak")
+	_write(dir + "progress.save", "{\"unlocked\": 3")
+	ProgressStore.open(dir)
+	_ok(_legacy(dir)["unlocked"] == 38, "corrupt progress.save is rewritten from Classic at launch")
+	_ok(_read(dir + "progress.save.bak") == good_bak, "a corrupt progress.save is never copied over the good .bak")
+	_write(dir + "progress.save", JSON.stringify({"unlocked": 30, "stars": {"0": 1}}))
+	var t := ProgressStore.open(dir)
+	_ok(_legacy(dir)["unlocked"] == 38 and t.unlocked("classic") == 38 and t.stars("classic", "legacy-1") == 1, "older progress.save: brought up to Classic (its extra star merged in)")
+
+func _resync_after_failed_dual_write() -> void:
+	var dir := _case("resync")
+	var s := ProgressStore.open(dir)
+	DirAccess.make_dir_absolute(dir + "progress.save.tmp")
+	s.record_completion("classic", "legacy-5", 4, 3)
+	_ok(s.pending_v1 and _legacy(dir)["unlocked"] == 0, "failed dual-write leaves progress.save behind")
+	DirAccess.remove_absolute(dir + "progress.save.tmp")
+	var relaunch := ProgressStore.open(dir)
+	_ok(relaunch.v1_resynced and not relaunch.pending_v1 and _legacy(dir)["unlocked"] == 5 and _legacy(dir)["stars"].get("4", 0) == 3, "next launch resynchronises progress.save without any save call")
+
+func _downgrade_preflight() -> void:
+	var dir := _case("downgrade")
+	var s := ProgressStore.open(dir)
+	s.record_completion("classic", "legacy-10", 9, 2)
+	var ok := s.prepare_for_downgrade()
+	_ok(bool(ok["ok"]) and int(ok["unlocked"]) == 10 and _legacy(dir)["unlocked"] == 10, "preflight ok: progress.save verified as the legacy Catalog reads it")
+	_write(dir + "progress.save", JSON.stringify({"unlocked": 2, "stars": {}}))
+	DirAccess.make_dir_absolute(dir + "progress.save.tmp")
+	var blocked := ProgressStore.open(dir).prepare_for_downgrade()
+	_ok(not bool(blocked["ok"]) and str(blocked["reason"]) != "" and _legacy(dir)["unlocked"] == 2, "preflight refuses (with a reason) when progress.save cannot be made current")
+	DirAccess.remove_absolute(dir + "progress.save.tmp")
+	var retry := ProgressStore.open(dir).prepare_for_downgrade()
+	_ok(bool(retry["ok"]) and _legacy(dir)["unlocked"] == 10, "preflight succeeds once the write is possible")
+	var newer := _case("downgrade_newer")
+	_write(newer + "progress_v2.save", JSON.stringify({"save_version": 3, "seq": 1, "campaigns": {}}))
+	_ok(not bool(ProgressStore.open(newer).prepare_for_downgrade()["ok"]), "preflight refuses when a newer save version is present")
