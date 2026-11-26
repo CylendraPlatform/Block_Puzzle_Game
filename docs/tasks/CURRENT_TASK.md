@@ -1,3 +1,46 @@
+# Current — M1.1 and M1.2 integrated on `main` (2026-11-26)
+
+**Status:** PR #6–#12 are merged into `main` with merge commits, in dependency order:
+#6 `33af34a`, #7 `2e0fe26`, #8 `88f52b6`, #9 `a53366b`, #10 `424167e`, #11 `212bd6e`,
+#12 `7e2eae9`. M1.1 (effect/trigger runtime) and M1.2 (advanced-mechanics visual
+integration) are complete and accepted. This is **not** commercial release readiness.
+
+**What `main` contains now:** TD-3 v2 geometry and 15 pilot levels, TD-3.5 visuals,
+TD-3.6 fixtures and candidates, the REA-02 research docs, the M1.1 runtime (locked and
+counter gates, triggers, reveal, blockers, colour-switching gates; solver-verified), and
+M1.2 (ordered presentation queue, Undo/Restart reconciliation, input lock, the Advanced QA
+screen with adv-001…003, the dev solve off the interaction path with cancellation). The
+player-facing **Play** route still runs the legacy `Rules` / `BoardView` / `levels/`
+campaign; the v2 engine and the advanced mechanics are reachable only through the
+dev-gated QA routes (hidden in release builds).
+
+**Gate before any new milestone:** (1) post-merge validation on the final `main` commit —
+full headless regression, benchmark witness diff, non-destructive Android `install -r`
+smoke; (2) a minimal GitHub Actions CI workflow, reviewed as its own PR. No new gameplay or
+visual milestone starts until both are done and approved.
+
+**Next phase — proposal, needs approval:** the rest of roadmap P1
+(`docs/roadmap/COMMERCIAL_GAME_ROADMAP.md`). Note the numbering drift: the project's M1.1
+delivered the roadmap's M1.1 (effects), M1.2 (counters/blockers), M1.3 (hidden/reveal)
+and M1.5 (colour switching) at engine level, and the project's M1.2 was visual
+integration. Not implemented yet: roadmap **M1.6 sticky pieces** (grouped movement; changes
+solver state) and the joined-lock/key parts of **M1.4** beyond `piece_exited →
+unlock_gate` triggers. Moving the player-facing campaign onto the v2 engine has not
+started. The owner picks the next milestone.
+
+**Open items:** `REQ-SAVE-REPLAY` (`docs/tasks/BACKLOG.md`); no CI yet; no release keystore,
+so no signed release build has been produced; no on-device FPS profiling; on a locked
+counter gate the number badge covers the padlock glyph; no external playtest — human
+difficulty is unmeasured.
+
+**Evidence:** `docs/tasks/M1_2_DEVICE_QA.md`, `docs/tasks/M1_2_INTEGRATION_READINESS.md`,
+`docs/tasks/M1_1_DEVICE_QA.md`, `docs/tasks/M1_1_SAVE_INTEGRITY_AUDIT.md`.
+
+---
+
+The sections below are historical task records. Their "do not merge" notes are superseded:
+PR #6–#12 were merged on 2026-11-26.
+
 # TD-3.6 — Puzzle depth & gameplay production (P0–P1 corrections)
 
 **Status:** P0 provisionally accepted. P1 solver validity accepted; fixture design rejected as generator seeds. Eight additional polyomino candidates are on `feat/td36-puzzle-depth-production` (PR #8) for product playtest. No human playtest. P2–P5 not started. Do not merge PR #6, #7, or #8. Do not bulk-generate.
