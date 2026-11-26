@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "id": "bm-003",
+  "name": "Keyhole Yard",
+  "board": {"cols": 6, "rows": 6, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0], [1, 0]], "pos": [0, 2], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1]], "pos": [3, 2], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [0, 1]], "pos": [4, 1], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [3, 5], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [4, 0], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 2, "hi": 2, "accept": ["red"], "initial_state": "open"},
+    {"id": "green_bottom", "side": "bottom", "lo": 3, "hi": 3, "accept": ["green"], "initial_state": "open"},
+    {"id": "blue_top", "side": "top", "lo": 4, "hi": 4, "accept": ["blue"], "initial_state": "open"},
+    {"id": "yellow_right", "side": "right", "lo": 5, "hi": 5, "accept": ["yellow"], "initial_state": "open"},
+    {"id": "orange_left", "side": "left", "lo": 0, "hi": 0, "accept": ["orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "Red must cross a blocked lane; each blocker needs its own key move first.",
+    "intent": "Orange clears before blue rises; yellow clears before green drops; only then is row 2 open for red to exit right. Original layout."
+  }
+}
