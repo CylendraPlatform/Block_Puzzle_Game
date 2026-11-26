@@ -182,8 +182,10 @@ Example with synthetic values:
 
 ### 5.3 Write protocol (same for v2 and the v1 dual-write)
 1. Serialise; write `X.tmp`; flush; close; check the file error.
-2. Read `X.tmp` back and validate it (checksum for v2, parse/shape for v1). Abort on failure.
-3. If `X` exists: delete `X.bak`, then rename `X` → `X.bak`.
+2. Read `X.tmp` back; it must equal the written bytes exactly. Abort on failure.
+3. If `X` exists and is valid (checksum for v2, parse/shape for v1): delete `X.bak`, then
+   rename `X` → `X.bak`. If `X` exists but is invalid, delete it instead, so a corrupt file
+   never replaces a good backup.
 4. Rename `X.tmp` → `X`.
 
 No step overwrites a file by rename. Windows refuses rename onto an existing file, so the
