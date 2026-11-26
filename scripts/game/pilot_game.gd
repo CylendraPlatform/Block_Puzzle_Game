@@ -1,5 +1,29 @@
+class_name PilotGame
 extends Control
 ## Developer route for the 15 v2 pilot levels. Does not write progress.save.
+## Subclasses (e.g. AdvancedQA) override the level source + title + save hooks below to
+## reuse this screen for a different, campaign-separate level set.
+
+## Level source + save hooks — overridable so a QA screen can point at another set without
+## touching campaign progress.
+func _level_paths() -> Array[String]:
+	return PilotCatalog.list_paths()
+
+func _read_level(path: String) -> Dictionary:
+	return PilotCatalog.read_definition(path)
+
+func _saved_index() -> int:
+	return PilotCatalog.load_index()
+
+func _save_index(index: int) -> void:
+	PilotCatalog.save_index(index)
+
+func _screen_title(index: int) -> String:
+	return "Level %d" % (index + 1)
+
+## Extra controls under the top bar; none here (AdvancedQA adds a level selector).
+func _add_tools(_column: Control) -> void:
+	pass
 
 var _paths: Array[String] = []
 var _index := 0
@@ -11,11 +35,21 @@ var _prompt: Label
 var _status: Label
 var _win_layer: Control
 var _prompt_row: Control
-var _lock_left := 0.0
+
+## Dev-only solvability readout. The verdict depends only on the level definition, so each
+## level is solved once on a worker thread and cached for the app session (static cache);
+## commits, undo and restart only read the cache and never run the solver on the
+## interaction path. The task itself belongs to this screen: _exit_tree() cancels and waits
+## for it, so no solver code runs after the screen is gone or during engine shutdown.
+static var _dev_verdicts := {}
+var _dev_task := -1
+var _dev_level := ""
+var _dev_result: Array = []
+var _dev_cancel: Semaphore = null
 
 func _ready() -> void:
-	_paths = PilotCatalog.list_paths()
-	_index = clampi(PilotCatalog.load_index(), 0, maxi(0, _paths.size() - 1))
+	_paths = _level_paths()
+	_index = clampi(_saved_index(), 0, maxi(0, _paths.size() - 1))
 	_build()
 	if not _paths.is_empty():
 		_load(_index)
@@ -48,6 +82,7 @@ func _build() -> void:
 	bar.add_child(restart)
 	bar.add_child(undo)
 	column.add_child(bar)
+	_add_tools(column)
 	column.add_child(_title)
 	_prompt_row = HBoxContainer.new()
 	_prompt = Label.new()
@@ -95,8 +130,8 @@ func _load(index: int) -> void:
 	if index < 0 or index >= _paths.size():
 		return
 	_index = index
-	PilotCatalog.save_index(index)
-	var raw := PilotCatalog.read_definition(_paths[index])
+	_save_index(index)
+	var raw := _read_level(_paths[index])
 	var loaded := LevelLoader.load_definition(raw)
 	if not bool(loaded["ok"]):
 		_title.text = "Invalid pilot level"
@@ -104,13 +139,17 @@ func _load(index: int) -> void:
 		return
 	_definition = loaded["definition"]
 	_session = PuzzleSessionV2.open(_definition)
+	# Switching level interrupts any transition still playing from the previous one.
+	_board.reconcile()
+	_board.set_locked(false)
 	_board.show_state(_definition, _session.state)
 	_win_layer.visible = false
 	_prompt_row.visible = true
 	var metrics: Dictionary = _definition.get("authored_metrics", {})
 	_prompt.text = str(metrics.get("prompt", ""))
-	_title.text = "Level %d" % (index + 1)
+	_title.text = _screen_title(index)
 	_refresh_status()
+	_start_dev_solve()
 
 func _refresh_status() -> void:
 	if _session == null:
@@ -118,40 +157,49 @@ func _refresh_status() -> void:
 	_status.text = "Moves %d" % _session.move_count()
 	if not DevAccess.enabled():
 		return
-	var solved := SolverV2.solve(_definition, PuzzleState.from_definition(_definition), 8000)
-	var verdict := str(solved["status"])
-	var length := int(solved["solution_length"])
-	_status.text = "Moves %d    Dev %s %s (%s)" % [_session.move_count(), str(_definition.get("id", "")), verdict, str(length)]
+	var id := str(_definition.get("id", ""))
+	_status.text = "Moves %d    Dev %s %s" % [_session.move_count(), id, str(_dev_verdicts.get(id, "solving..."))]
 
 func _on_commit(action: PuzzleAction) -> void:
 	if _session == null or _session.input_locked:
 		return
+	var started := Time.get_ticks_usec()
+	var previous := _session.state
 	var applied := _session.commit(action)
 	if not bool(applied["ok"]):
 		if Audio:
 			Audio.sfx("bump")
 		return
+	# Lock at once; it lifts only when the board's presentation queue drains (plan R2).
 	_session.input_locked = true
 	_board.set_locked(true)
 	var leaving := action.kind == PuzzleAction.EXIT
 	if leaving:
 		_board.note_exit(action.piece_id, action.direction)
 	_board.show_state(_definition, _session.state, leaving)
-	_lock_left = 0.34 if leaving else 0.18
+	_board.begin_transition(previous, applied.get("events", []), leaving)
+	_refresh_status()
+	if DevAccess.enabled():
+		print("[perf] commit_ms=%.2f level=%s move=%d" % [float(Time.get_ticks_usec() - started) / 1000.0, str(_definition.get("id", "")), _session.move_count()])
+
+func _process(_delta: float) -> void:
+	_poll_dev_solve()
+	if _session == null or not _session.input_locked or _board.transition_active():
+		return
+	_session.input_locked = false
+	_board.set_locked(false)
+	# The win card waits for the winning move's transitions so they stay visible.
 	if _session.is_won():
 		_win_layer.visible = true
-	_refresh_status()
-
-func _process(delta: float) -> void:
-	if _lock_left <= 0.0 or _session == null:
-		return
-	_lock_left -= delta
-	if _lock_left <= 0.0:
-		_session.input_locked = false
-		_board.set_locked(false)
 
 func _on_undo() -> void:
-	if _session == null or not _session.undo():
+	if _session == null:
+		return
+	# Undo interrupts a playing transition: settle it, then restore the previous snapshot.
+	_board.reconcile()
+	_session.input_locked = false
+	_board.set_locked(false)
+	if not _session.undo():
 		return
 	_win_layer.visible = false
 	_board.show_state(_definition, _session.state)
@@ -160,7 +208,9 @@ func _on_undo() -> void:
 func _on_restart() -> void:
 	if _session == null:
 		return
+	_board.reconcile()
 	_session.restart()
+	_board.set_locked(false)
 	_win_layer.visible = false
 	_board.show_state(_definition, _session.state)
 	_refresh_status()
@@ -173,3 +223,50 @@ func _on_next() -> void:
 
 func _on_menu() -> void:
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
+func _start_dev_solve() -> void:
+	if not DevAccess.enabled() or _definition.is_empty() or _dev_task != -1:
+		return
+	var id := str(_definition.get("id", ""))
+	if _dev_verdicts.has(id):
+		return
+	# One solve at a time: SolverV2 keeps static profiling counters, so it is not reentrant.
+	var defn := _definition.duplicate(true)
+	var result: Array = []
+	var cancel := Semaphore.new()
+	_dev_level = id
+	_dev_result = result
+	_dev_cancel = cancel
+	_dev_task = WorkerThreadPool.add_task(func() -> void:
+		var started := Time.get_ticks_usec()
+		var solved := SolverV2.solve(defn, PuzzleState.from_definition(defn), 8000, 0, cancel)
+		result.append("%s (%d)" % [str(solved["status"]), int(solved["solution_length"])])
+		result.append(float(Time.get_ticks_usec() - started) / 1000.0), false, "dev solvability readout")
+
+func _poll_dev_solve() -> void:
+	if _dev_task == -1 or not WorkerThreadPool.is_task_completed(_dev_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_dev_task)
+	_dev_task = -1
+	if _dev_result.size() == 2:
+		_dev_verdicts[_dev_level] = str(_dev_result[0])
+		print("[perf] dev_solve_ms=%.1f level=%s (worker thread, off the interaction path)" % [float(_dev_result[1]), _dev_level])
+	else:
+		_dev_verdicts[_dev_level] = "unavailable"
+	_refresh_status()
+	# The player may have switched level while that solve ran.
+	_start_dev_solve()
+
+## Leaving the screen (menu, scene change, app quit) stops a running solve at its next
+## expansion and waits for it, instead of leaving solver script code running into engine
+## shutdown. A cancelled level is not cached, so it is solved again on its next visit.
+func _exit_tree() -> void:
+	if _dev_task == -1:
+		return
+	var finished := WorkerThreadPool.is_task_completed(_dev_task)
+	if not finished:
+		_dev_cancel.post()
+	WorkerThreadPool.wait_for_task_completion(_dev_task)
+	_dev_task = -1
+	if finished and _dev_result.size() == 2:
+		_dev_verdicts[_dev_level] = str(_dev_result[0])

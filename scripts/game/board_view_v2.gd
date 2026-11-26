@@ -31,6 +31,21 @@ var _drag_px := 0.0
 var _pointer := Vector2.ZERO
 var _dragging := false
 var _exits: Array[Dictionary] = []
+## Presentation queue (M1.2 plan R1). `state` stays the authoritative PuzzleState and
+## drives geometry; `_shown` holds the mechanic flags the player has seen so far (gate
+## mode / counter / phase, blocker, reveal). Each queued step copies one event's
+## end-visual from `state` into `_shown`, so the picture never runs ahead of the animation
+## and nothing here ever writes PuzzleState. Draining every step lands exactly on `state`.
+var _shown: PuzzleState = null
+var _steps: Array[Dictionary] = []
+var _step_t := 0.0
+var _step_begun := false
+var _flashes: Array[Dictionary] = []
+const STEP_MOVE := 0.18
+const STEP_EXIT := 0.34
+const STEP_EVENT := 0.30
+const FLASH_TIME := 0.30
+const SHOWN_EVENTS := [PuzzleEvent.GATE_COUNTER_CHANGED, PuzzleEvent.GATE_UNLOCKED, PuzzleEvent.BLOCKER_REMOVED, PuzzleEvent.PIECE_REVEALED]
 
 func note_exit(piece_id: String, direction: String) -> void:
 	if state == null or not state.pieces.has(piece_id):
@@ -55,6 +70,142 @@ func set_locked(locked: bool) -> void:
 	if locked:
 		_dragging = false
 		_drag_id = ""
+
+## Present one committed action as an ordered sequence. Call after show_state() has
+## installed the new authoritative state. `previous` is the state before the commit; it is
+## duplicated, never mutated (the session keeps it as its undo snapshot). Steps: the move
+## itself, then each mechanic event in PuzzleEvent.sort_stable order (plan R1).
+func begin_transition(previous: PuzzleState, events: Array, leaving: bool) -> void:
+	fast_forward()
+	_shown = previous.duplicate()
+	_steps.append({"kind": "move", "subject": "", "time": STEP_EXIT if leaving else STEP_MOVE})
+	for event in PuzzleEvent.sort_stable(events):
+		var kind := str(event.type)
+		if kind in SHOWN_EVENTS:
+			_steps.append({"kind": kind, "subject": str(event.subject_id), "time": STEP_EVENT})
+	_step_t = 0.0
+	_step_begun = false
+	queue_redraw()
+
+## True while queued steps remain; the controller keeps input locked until this is false.
+func transition_active() -> bool:
+	return not _steps.is_empty()
+
+## Pending step kinds in play order (tests and diagnostics).
+func pending_steps() -> Array:
+	var out: Array = []
+	for step in _steps:
+		out.append(str(step["kind"]))
+	return out
+
+## Mechanic flags currently on screen: the presentation copy mid-transition, otherwise the
+## authoritative state.
+func shown_state() -> PuzzleState:
+	return _shown if _shown != null else state
+
+## Apply every pending step's end-visual at once. Steps copy from `state`, so this lands
+## exactly on the authoritative picture; it only skips tweens and never writes PuzzleState.
+func fast_forward() -> void:
+	if _shown != null:
+		for step in _steps:
+			_apply_step(step)
+	_steps.clear()
+	_step_t = 0.0
+	_step_begun = false
+	_shown = null
+	_flashes.clear()
+	queue_redraw()
+
+## Settle any transition and drop exit slides so the next redraw is the authoritative state.
+## Used by Undo / Restart / level load and any interruption (plan R2).
+func reconcile() -> void:
+	fast_forward()
+	_exits.clear()
+
+## Advance the queue by `delta` seconds. A move step applies its visual (gate phase) once the
+## piece has landed; an event step applies its visual, with a ring, as it begins. A long
+## frame drains several steps at once instead of stalling.
+func advance_transition(delta: float) -> void:
+	if _steps.is_empty():
+		return
+	if not _step_begun:
+		_begin_step(_steps[0])
+	_step_t += delta
+	while not _steps.is_empty() and _step_t >= float(_steps[0]["time"]):
+		_step_t -= float(_steps[0]["time"])
+		var done: Dictionary = _steps.pop_front()
+		_step_begun = false
+		if str(done["kind"]) == "move":
+			_apply_step(done)
+		if not _steps.is_empty():
+			_begin_step(_steps[0])
+	if _steps.is_empty():
+		_step_t = 0.0
+		_shown = null
+	queue_redraw()
+
+func _begin_step(step: Dictionary) -> void:
+	_step_begun = true
+	var kind := str(step["kind"])
+	if kind == "move":
+		return
+	_apply_step(step)
+	var pos = _event_center(kind, str(step["subject"]))
+	if pos != null:
+		_flashes.append({"pos": pos, "t": 0.0})
+
+## Copy one event's end-visual from the authoritative state into the presentation copy.
+## shortcut: a counter is shown at its committed value, so two decrements of one gate in a
+## single commit read as one change; step counters through if a level ever does that.
+func _apply_step(step: Dictionary) -> void:
+	if _shown == null or state == null:
+		return
+	var subject := str(step["subject"])
+	match str(step["kind"]):
+		"move":
+			for gid in state.gates.keys():
+				if state.gates[gid].has("phase") and _shown.gates.has(gid):
+					_shown.gates[gid]["phase"] = int(state.gates[gid]["phase"])
+		PuzzleEvent.GATE_COUNTER_CHANGED:
+			if state.gates.has(subject) and _shown.gates.has(subject):
+				_shown.gates[subject]["counter_remaining"] = int(state.gates[subject]["counter_remaining"])
+		PuzzleEvent.GATE_UNLOCKED:
+			if state.gates.has(subject) and _shown.gates.has(subject):
+				_shown.gates[subject]["mode"] = str(state.gates[subject]["mode"])
+		PuzzleEvent.BLOCKER_REMOVED:
+			if state.blockers.has(subject) and _shown.blockers.has(subject):
+				_shown.blockers[subject]["active"] = bool(state.blockers[subject]["active"])
+		PuzzleEvent.PIECE_REVEALED:
+			if state.pieces.has(subject) and _shown.pieces.has(subject):
+				_shown.pieces[subject]["revealed"] = bool(state.pieces[subject]["revealed"])
+
+func _event_center(kind: String, subject: String):
+	var board: Dictionary = definition.get("board", {})
+	var cols := int(board.get("cols", 1))
+	var rows := int(board.get("rows", 1))
+	if kind == PuzzleEvent.GATE_UNLOCKED or kind == PuzzleEvent.GATE_COUNTER_CHANGED:
+		for gate in definition.get("gates", []):
+			if typeof(gate) == TYPE_DICTIONARY and str(gate.get("id", "")) == subject:
+				var lo := int(gate.get("lo", 0))
+				var hi := int(gate.get("hi", lo))
+				var mid := (float(lo + hi) + 1.0) * 0.5 * _cell
+				match str(gate.get("side", "")):
+					"left": return _origin + Vector2(0.0, mid)
+					"right": return _origin + Vector2(cols * _cell, mid)
+					"top": return _origin + Vector2(mid, 0.0)
+					"bottom": return _origin + Vector2(mid, rows * _cell)
+				return null
+		return null
+	if kind == PuzzleEvent.PIECE_REVEALED and state != null and state.pieces.has(subject):
+		return _px(state.pieces[subject]["pos"]) + Vector2(_cell, _cell) * 0.5
+	if kind == PuzzleEvent.BLOCKER_REMOVED:
+		for blocker in definition.get("blockers", []):
+			if typeof(blocker) == TYPE_DICTIONARY and str(blocker.get("id", "")) == subject:
+				var c = blocker.get("cell", null)
+				if typeof(c) == TYPE_ARRAY and c.size() == 2:
+					return _px(Vector2i(int(c[0]), int(c[1]))) + Vector2(_cell, _cell) * 0.5
+		return null
+	return null
 
 static func choose_action(actions: Array, origin: Vector2i, direction: String, steps: int) -> PuzzleAction:
 	if steps <= 0 or direction == "":
@@ -98,6 +249,15 @@ func _process(delta: float) -> void:
 		if float(item["t"]) < 0.34:
 			still.append(item)
 	_exits = still
+	if not _flashes.is_empty():
+		var live: Array[Dictionary] = []
+		for flash in _flashes:
+			flash["t"] = float(flash["t"]) + delta
+			if float(flash["t"]) < FLASH_TIME:
+				live.append(flash)
+		_flashes = live
+		queue_redraw()
+	advance_transition(delta)
 	if state == null:
 		return
 	_layout()
@@ -140,6 +300,10 @@ func _draw() -> void:
 	if state == null or definition.is_empty():
 		return
 	_layout()
+	# Before the container lays the board out, cells are a pixel or less: nothing to draw,
+	# and text glyphs would be asked for a zero font size.
+	if _cell < 4.0:
+		return
 	var board: Dictionary = definition.get("board", {})
 	var cols := int(board.get("cols", 1))
 	var rows := int(board.get("rows", 1))
@@ -161,6 +325,16 @@ func _draw() -> void:
 	for gate in definition.get("gates", []):
 		if typeof(gate) == TYPE_DICTIONARY:
 			_draw_gate(gate, cols, rows)
+	# Mechanic flags come from what the player has seen so far; geometry stays authoritative.
+	var flags := shown_state()
+	for blocker in definition.get("blockers", []):
+		if typeof(blocker) != TYPE_DICTIONARY:
+			continue
+		var bid := str(blocker.get("id", ""))
+		if flags.blockers.has(bid) and bool(flags.blockers[bid]["active"]):
+			var bcell = blocker.get("cell", null)
+			if typeof(bcell) == TYPE_ARRAY and bcell.size() == 2:
+				_draw_blocker(Vector2i(int(bcell[0]), int(bcell[1])))
 	var geometry := PuzzleEngine._geometry(definition)
 	_draw_preview(geometry)
 	var ids: Array = geometry.keys()
@@ -169,6 +343,11 @@ func _draw() -> void:
 		if not state.pieces.has(id) or not bool(state.pieces[id]["active"]):
 			continue
 		var origin: Vector2i = state.pieces[id]["pos"]
+		# A hidden piece occupies its cells but shows no colour until revealed.
+		if flags.pieces.has(id) and not bool(flags.pieces[id].get("revealed", true)):
+			for offset in geometry[id]["offsets"]:
+				_draw_hidden(origin + offset)
+			continue
 		var base := _px(origin)
 		if _visual.has(id):
 			base = _visual[id]
@@ -181,6 +360,11 @@ func _draw() -> void:
 		var from: Vector2 = item["from"]
 		var slide := from + Vector2(_dir(str(item["dir"]))) * _cell * (0.35 + travel * 1.2)
 		_draw_piece(exit_id, geometry[exit_id], slide, 1.0 - travel)
+	# Transition flashes: an expanding, fading ring at each committed event's location.
+	for flash in _flashes:
+		var ft := clampf(float(flash["t"]) / FLASH_TIME, 0.0, 1.0)
+		var radius := _cell * (0.2 + ft * 0.5)
+		draw_arc(flash["pos"], radius, 0.0, TAU, 24, Color(1, 1, 1, (1.0 - ft) * 0.9), maxf(2.0, _cell * 0.07))
 
 func _draw_preview(geometry: Dictionary) -> void:
 	if not _dragging or _axis == "" or _drag_id == "" or not geometry.has(_drag_id):
@@ -197,11 +381,22 @@ func _draw_preview(geometry: Dictionary) -> void:
 	_draw_piece(_drag_id, geometry[_drag_id], base, 0.15)
 
 func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
-	var accepts: Array = gate.get("accept", [])
+	# Visual derived from the gate state the player has seen (shown_state): scheduled colour
+	# for a color-switching gate, a locked style + lock glyph while LOCKED, a counter badge.
+	var gid := str(gate.get("id", ""))
+	var gstate: Dictionary = shown_state().gates.get(gid, {})
+	var locked := str(gstate.get("mode", "OPEN")) == "LOCKED"
 	var color_name := "red"
-	if not accepts.is_empty():
-		color_name = str(accepts[0])
+	if GateRules.is_color_switching(gate):
+		color_name = GateRules.scheduled_color(gate, int(gstate.get("phase", 0)))
+	else:
+		var accepts: Array = gate.get("accept", [])
+		if not accepts.is_empty():
+			color_name = str(accepts[0])
 	var color := TD35Theme.piece_color(color_name)
+	if locked:
+		color = color.darkened(0.45)
+		color.s *= 0.5
 	var lo := int(gate.get("lo", 0))
 	var hi := int(gate.get("hi", lo))
 	var span := float(hi - lo + 1) * _cell
@@ -228,6 +423,53 @@ func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 			return
 	_round(hole, TD35Theme.CANVAS, int(clampf(_cell * 0.12, 4.0, 12.0)))
 	_round(lip, color, int(clampf(_cell * 0.1, 3.0, 8.0)))
+	if locked:
+		_glyph_lock(lip.get_center())
+	var remaining := int(gstate.get("counter_remaining", -1))
+	if remaining > 0:
+		_badge(lip.get_center(), str(remaining))
+
+## A small padlock glyph (shackle arc + body) so a locked gate reads without colour.
+func _glyph_lock(center: Vector2) -> void:
+	var s := clampf(_cell * 0.22, 8.0, 20.0)
+	var body := Rect2(center - Vector2(s * 0.5, s * 0.1), Vector2(s, s * 0.7))
+	draw_rect(body, Color.WHITE)
+	draw_rect(body, Color(0, 0, 0, 0.85), false, maxf(1.5, s * 0.08))
+	var r := s * 0.32
+	draw_arc(center - Vector2(0, s * 0.1), r, PI, TAU, 10, Color.WHITE, maxf(2.0, s * 0.12))
+	draw_circle(center + Vector2(0, s * 0.22), maxf(1.5, s * 0.08), Color(0, 0, 0, 0.85))
+
+## A high-contrast numeric badge (counter remaining), legible on a dense small screen.
+func _badge(center: Vector2, text: String) -> void:
+	var r := clampf(_cell * 0.2, 9.0, 18.0)
+	draw_circle(center, r, Color(0.1, 0.12, 0.2, 0.95))
+	draw_arc(center, r, 0.0, TAU, 20, Color.WHITE, maxf(1.5, r * 0.14))
+	var font := ThemeDB.fallback_font
+	var fs := int(r * 1.2)
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
+	draw_string(font, center + Vector2(-w * 0.5, fs * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+
+## An active blocker: a distinct hatched obstacle tile (shape + cross-hatch, not colour).
+func _draw_blocker(cell: Vector2i) -> void:
+	var gap := clampf(_cell * 0.08, 2.0, 4.0)
+	var rect := Rect2(_px(cell) + Vector2(gap, gap), Vector2(_cell - gap * 2.0, _cell - gap * 2.0))
+	_round(rect, TD35Theme.WALL, int(clampf(_cell * 0.14, 6.0, 12.0)))
+	var inset := _cell * 0.22
+	var a := _px(cell) + Vector2(inset, inset)
+	var b := _px(cell) + Vector2(_cell - inset, _cell - inset)
+	var line := Color(1, 1, 1, 0.8)
+	draw_line(a, b, line, maxf(2.0, _cell * 0.05))
+	draw_line(Vector2(b.x, a.y), Vector2(a.x, b.y), line, maxf(2.0, _cell * 0.05))
+
+## An unrevealed hidden piece: an obscured neutral tile with a "?" (no colour cue).
+func _draw_hidden(cell: Vector2i) -> void:
+	var gap := clampf(_cell * 0.08, 2.0, 4.0)
+	var rect := Rect2(_px(cell) + Vector2(gap, gap), Vector2(_cell - gap * 2.0, _cell - gap * 2.0))
+	_round(rect, TD35Theme.FRAME, int(clampf(_cell * 0.16, 6.0, 14.0)))
+	var font := ThemeDB.fallback_font
+	var fs := int(_cell * 0.5)
+	var w := font.get_string_size("?", HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
+	draw_string(font, _px(cell) + Vector2(_cell * 0.5 - w * 0.5, _cell * 0.68), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.9))
 
 func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) -> void:
 	if _dragging and id == _drag_id and alpha > 0.99:
@@ -416,6 +658,9 @@ func _piece_at(cell: Vector2i) -> String:
 	var geometry := PuzzleEngine._geometry(definition)
 	for id in geometry.keys():
 		if not bool(state.pieces[id]["active"]):
+			continue
+		# A hidden piece cannot be grabbed until it is revealed (engine also rejects it).
+		if not bool(state.pieces[id].get("revealed", true)):
 			continue
 		var origin: Vector2i = state.pieces[id]["pos"]
 		for offset in geometry[id]["offsets"]:

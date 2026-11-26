@@ -18,7 +18,9 @@ func _build() -> void:
 	safe.add_child(center)
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", 16)
+	# Dev builds stack four extra QA entries; a tighter gap keeps them inside the bottom
+	# safe inset on 360x800. The player-facing menu keeps its 16px spacing.
+	column.add_theme_constant_override("separation", 12 if DevAccess.enabled() else 16)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.add_child(column)
 	center.resized.connect(func() -> void:
@@ -44,6 +46,9 @@ func _build() -> void:
 		var td36 := UIKit.button("TD-3.6 QA", _on_td36)
 		TD35Theme.style_button(td36, false)
 		column.add_child(td36)
+		var advanced := UIKit.button("Advanced QA", _on_advanced)
+		TD35Theme.style_button(advanced, false)
+		column.add_child(advanced)
 	var settings := UIKit.button("Settings", _on_settings)
 	TD35Theme.style_button(settings, false)
 	column.add_child(settings)
@@ -63,6 +68,9 @@ func _on_pilot() -> void:
 
 func _on_td36() -> void:
 	get_tree().change_scene_to_file("res://scenes/Td36Qa.tscn")
+
+func _on_advanced() -> void:
+	get_tree().change_scene_to_file("res://scenes/AdvancedQa.tscn")
 
 func _on_settings() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScreen.tscn")
