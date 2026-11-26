@@ -1,0 +1,66 @@
+# Godot headless validation and regression tests.
+# Runs the headless suite from docs/runbooks/testing.md plus the M1.x tests. Each test
+# script exits with its failure count. Render-based screenshot tests (test_layout,
+# *_shots) need a display/GPU and are not run here; neither are generators that rewrite
+# levels or docs (gen_levels, add_par, name_levels, audit_levels) or profilers.
+name: Godot CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  # SHA-512 of Godot_v4.7.2-stable_linux.x86_64.zip from the release's SHA512-SUMS.txt.
+  GODOT_SHA512: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
+
+jobs:
+  headless:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }} (checksum-verified)
+        run: |
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$zip" "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${zip}"
+          echo "${GODOT_SHA512}  ${zip}" | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+          ./godot --version
+
+      - name: Import project
+        run: ./godot --headless --path . --import
+
+      - name: Headless regression
+        run: |
+          tests="test_rules validate_all test_services test_drag test_v2_foundation test_v2_solver
+            test_v2_session test_v2_pilot test_m1_1_phase_a test_m1_1_phase_b test_m1_1_phase_c
+            test_m1_1_phase_d test_m1_1_fixes test_m1_2_view test_m1_2_sequencing
+            test_m1_2_dev_solve_lifecycle test_td36_benchmarks test_td36_metrics
+            solve_benchmarks solve_advanced_benchmarks test_v2_campaign"
+          failed=""
+          for t in $tests; do
+            echo "::group::$t"
+            if ./godot --headless --path . --script "res://test/$t.gd"; then
+              echo "$t: exit 0"
+            else
+              echo "::error title=$t::exit $?"
+              failed="$failed $t"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "Failed:$failed"
+            exit 1
+          fi
