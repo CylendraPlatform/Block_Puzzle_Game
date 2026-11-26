@@ -1,6 +1,7 @@
 # Prioritized Backlog
 
-- **TD-2 [active]** Complete legal movement and Solver v2. See `docs/tasks/CURRENT_TASK.md`. TD-3 and TD-4 are not started.
+- **TD-3 [implemented, not device-accepted]** Playable v2 pilot, connected pieces, and precise gates. See `docs/tasks/CURRENT_TASK.md`. TD-4 is not started.
+- **TD-2 [done]** Complete legal movement and Solver v2. Merged as PR #5.
 - **TD-0 / TD-1 [done]** Versioned puzzle-state foundation. Historical evidence stays in `docs/tasks/CURRENT_TASK.md`.
 - **BP-101 [P0]** Release-readiness QA and evidence. The previous ledger text is retained below so that history is not dropped.
 - **BP-102 [P1]** Evaluate and polish gate-directed block exit animation, after user comparison.

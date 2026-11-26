@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-001",
+  "name": "First Drag",
+  "board": {"cols": 4, "rows": 1, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 0], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 0, "hi": 0, "accept": ["red"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Drag to the matching exit.", "intent": "One straight exit teaches the drag."}
+}

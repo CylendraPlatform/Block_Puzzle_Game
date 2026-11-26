@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "id": "v2-013",
+  "name": "Right Order",
+  "board": {"cols": 5, "rows": 3, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [3, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 1, "hi": 1, "accept": ["red"], "initial_state": "open"},
+    {"id": "blue_left", "side": "left", "lo": 1, "hi": 1, "accept": ["blue"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "One shape has to leave before the other can pass.", "intent": "They block each other's straight lane, so one goes around and exits before the other crosses."}
+}

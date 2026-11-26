@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "id": "v2-005",
+  "name": "Tall Enough",
+  "board": {"cols": 4, "rows": 4, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0], [0, 1]], "pos": [0, 2], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "decoy_bottom", "side": "bottom", "lo": 3, "hi": 3, "accept": ["blue"], "initial_state": "open"},
+    {"id": "red_right", "side": "right", "lo": 0, "hi": 1, "accept": ["red"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "The tall shape needs a gate as tall as it is.", "intent": "A one-cell gate of another color cannot take the domino. The two-cell gate can, after the piece slides up."}
+}

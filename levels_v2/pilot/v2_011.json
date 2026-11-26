@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "v2-011",
+  "name": "Turn the Bend",
+  "board": {"cols": 5, "rows": 4, "walls": []},
+  "pieces": [
+    {"id": "yellow", "color": "yellow", "cells": [[1, 0], [2, 0], [0, 1], [1, 1]], "pos": [0, 0], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "yellow_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["yellow"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {"prompt": "Line the bent shape up with the opening.", "intent": "The S covers three columns and fits the gate only after one step to the right, not after the longest slide."}
+}

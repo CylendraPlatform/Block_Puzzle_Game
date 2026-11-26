@@ -18,9 +18,13 @@ scripts/
     puzzle_state.gd, puzzle_action.gd, puzzle_event.gd, puzzle_engine.gd, puzzle_search_context.gd, solver_v2.gd
                   canonical state, legal landings, open-gate exits, and shortest-move search
     See docs/decisions/ADR-002-deterministic-puzzle-state.md, docs/v2/SCHEMA_V2.md, and docs/v2/SOLVER_V2.md.
-    Live play still calls rules.gd. The v2 engine is not wired into BoardView.
+    Live campaign play still calls rules.gd and BoardView.
+    The opt-in v2 pilot uses PuzzleSessionV2, BoardViewV2, and PilotCatalog.
+    See docs/v2/PILOT_LEVELS.md. It does not replace the 100-level campaign.
   game/
-    board_view.gd rendering + touch-drag + easing (the only input surface)
+    board_view.gd rendering + touch-drag + easing for the commercial campaign
+    board_view_v2.gd  connected silhouettes, precise gates, drag intent for the pilot
+    pilot_game.gd, pilot_catalog.gd  developer pilot route and its own save file
     game.gd       controller: level flow, HUD, pause, undo, win, analytics hooks
   ui/
     main_menu.gd, level_select.gd, settings_ui.gd   screens (built in code)
@@ -37,7 +41,8 @@ scripts/
     ads_service.gd [autoload Ads] testable ad interface (no SDK)
     iap_service.gd [autoload IAP] purchase architecture (no billing)
 scenes/   thin .tscn wrappers binding a Control root to its script
-levels/   level_001..100.json (data)
+levels/   level_001..100.json (commercial campaign)
+levels_v2/pilot/  v2-001..v2-015.json (developer pilot, not in Catalog)
 assets/audio/  original generated WAVs
 test/     headless SceneTree tests + generator tool
 ```
