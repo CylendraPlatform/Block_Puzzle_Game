@@ -11,7 +11,7 @@ locks/keys are out of scope.
 
 | Question | Answer (evidence in §2–§3) |
 |---|---|
-|Can the shipped 100 levels run on v2 unchanged?|**97 of 100** showed identical legal moves on every compared state. This is **bounded differential evidence, not an exhaustive proof** (§3.1). The other 3 (021, 080, 090) differ only by a legacy pass-through-exit defect (§3.2); all 3 stay solvable under v2 at exactly their stored `par`.|
+|Can the shipped 100 levels run on v2 unchanged?|**97 of 100** showed identical legal moves on every compared state. This is **bounded differential evidence, not an exhaustive proof** (§3.1). The other 3 (021, 080, 090) differ only by a legacy pass-through-exit defect (§3.2); all 3 stay solvable under v2 at exactly their stored `par`. *M1.3-B's wider test raises this to 11 levels with a reachable pass-through exit, all still winnable in v2 in their stored `par` (§3.1 note, D1).*|
 |Is existing progress preserved?|Yes. `progress.save` maps deterministically to stable ids (every file's `id` = sorted position + 1). It is never deleted, and is merged into the new store on every load (§5).|
 |Rollback?|An engine flag plus a non-destructive save design: the legacy file is kept, dual-written for Classic, max-merged back and resynchronised at every launch. Switching engines inside the new build is fully covered; running an older binary is guaranteed only after the verified `prepare_for_downgrade()` preflight (§5.5).|
 |New content?|Chapter 1: 20 original levels, independently accessible, separate progress and stars; becomes the default Play campaign only after its acceptance (§4.2, §7).|
@@ -21,7 +21,7 @@ locks/keys are out of scope.
 
 | | Decision | Where applied |
 |---|---|---|
-|**D1**|Adopt v2's strict exit rule for 021, 080, 090. Keep the original level files unchanged, document the intentional behavioural difference, and keep solvability/`par` regression tests.|§3.2, §8.1|
+|**D1**|Adopt v2's strict exit rule for 021, 080, 090. Keep the original level files unchanged, document the intentional behavioural difference, and keep solvability/`par` regression tests. **Extended 2026-11-26 (M1.3-B, owner accepted):** the same rule applies to all 11 levels where wider coverage finds the pass-through exit reachable — 021, 024, 044, 046, 061, 076, 080, 081, 086, 088, 090; the set is pinned by `test_classic_equivalence`.|§3.1, §3.2, §8.1|
 |**D2**|Preserve Classic scoring. Undo never refunds scoring moves or changes earned stars. The scoring counter is independent of `PuzzleState.move_number`.|§6.1, §8.1|
 |**D3**|TD-3.5 Pearl is the unified visual identity, **default only after physical-device visual sign-off**.|§6.3, §8.2|
 |**D4**|Exit gesture thresholds 0.34 cell, 0.12 cell near the screen edge; configurable and regression-tested.|§6.3, §8.1|
@@ -88,6 +88,17 @@ larger than the 21–129 states compared, so a difference could exist in an unex
 It shows the rules agree near the start and along an optimal solution, where play
 concentrates. M1.3-B keeps it as a regression test and widens coverage (deeper BFS for small
 levels and a seeded random walk for large ones); a later full-proof check is optional.
+
+> **M1.3-B update (wider coverage).** `test/test_classic_equivalence.gd` compares 400 BFS
+> states, the shortest legacy solution and 12 seeded random walks per level. It confirms the
+> pass-through exit is the **only** kind of difference, but finds it reachable in **11**
+> levels, not 3: 021, 024, 044, 046, 061, 076, 080, 081, 086, 088, 090. For the 8 new ones
+> the selected shortest legacy solution (first found by BFS) avoids it, replays unchanged in
+> v2 and wins in `par`; only 021 and 090's selected solution uses it (one witness per level,
+> not all optimal solutions). Every level's shortest legacy length equals its stored `par`. D1 is unchanged: no
+> level file is edited, every level keeps its `par`, and the exact 11-level set is pinned by
+> the test. The owner accepted this 11-level scope under D1 on 2026-11-26. See
+> `docs/LEVEL_SYSTEM.md` (exit rule).
 
 | Level | Board | `par` | Where it differs | v2 optimum (`SolverV2`, cap 200,000, witness-replayed) |
 |---|---|---|---|---|

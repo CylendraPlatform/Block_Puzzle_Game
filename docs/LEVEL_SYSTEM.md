@@ -35,6 +35,34 @@ A block leaves the board when, moving toward a side, it is flush against that ed
 and every crossing cell's perpendicular coordinate falls within a matching-color
 gate's `[lo,hi]`. Then the whole block slides off and is removed.
 
+### Intentional rule correction in the v2 engine (M1.3 decision D1)
+The legacy `Rules.slide_result` checks the exit only after the next step is blocked, and
+does not ask *why* it is blocked. So a block whose cell touches the gate edge exits even
+when a wall or another block sits directly in front of one of its other cells (a
+"pass-through" exit). The v2 `PuzzleEngine`, which Classic will run on from M1.3-C, does
+not allow this: a block exits only when nothing in the board is in its way.
+
+This is a deliberate correction, not a regression. `test/test_classic_equivalence.gd`
+pins its exact impact on the 100 shipped levels:
+
+- For every level, the legacy Play move set (every landing plus exits) and the v2 move
+  set produce the same successor states on a bounded BFS (400 states), along a shortest
+  legacy solution (which exercises every exit), and on 12 seeded random walks.
+- The only difference allowed is a legacy-only pass-through exit. Within that bounded
+  exploration it is reachable in exactly 11 levels: **021, 024, 044, 046, 061, 076,
+  080, 081, 086, 088, 090**. A new or vanished difference anywhere fails the test.
+- Every level's shortest legacy solution length equals its stored `par`.
+- In 9 of the 11, the selected shortest legacy solution (the first one BFS finds) avoids
+  the pass-through exit, replays unchanged in v2 and wins in `par` moves. Only in **021
+  and 090** does that selected solution use one. This describes one witness per level,
+  not every optimal solution.
+- 021, 080 and 090 are solved by `SolverV2` in v2: shortest length equals the stored
+  `par` (021: 3, 080: 7, 090: 5) and the witness replays to a win, so their star
+  thresholds stay valid. (080 was flagged by the first, narrower M1.3 audit.)
+
+Classic levels have stable ids `legacy-<file id>` (`CampaignCatalog`), equal to the save
+index + 1 used by `progress.save`; the test fails if a file is renamed or reordered.
+
 ## Solvability guarantee
 `Rules.solve(level)` (BFS) proves a level is clearable. `Rules.solve_min_moves` gives
 the shortest solution length, used as a difficulty signal. **Every shipped level is
