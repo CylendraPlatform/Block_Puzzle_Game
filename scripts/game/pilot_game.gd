@@ -37,13 +37,15 @@ var _win_layer: Control
 var _prompt_row: Control
 
 ## Dev-only solvability readout. The verdict depends only on the level definition, so each
-## level is solved once on a worker thread and cached for the app session; commits, undo
-## and restart only read the cache and never run the solver on the interaction path.
-## Static, so a solve that outlives this screen is collected by the next one, not waited on.
+## level is solved once on a worker thread and cached for the app session (static cache);
+## commits, undo and restart only read the cache and never run the solver on the
+## interaction path. The task itself belongs to this screen: _exit_tree() cancels and waits
+## for it, so no solver code runs after the screen is gone or during engine shutdown.
 static var _dev_verdicts := {}
-static var _dev_task := -1
-static var _dev_level := ""
-static var _dev_result: Array = []
+var _dev_task := -1
+var _dev_level := ""
+var _dev_result: Array = []
+var _dev_cancel: Semaphore = null
 
 func _ready() -> void:
 	_paths = _level_paths()
@@ -231,11 +233,13 @@ func _start_dev_solve() -> void:
 	# One solve at a time: SolverV2 keeps static profiling counters, so it is not reentrant.
 	var defn := _definition.duplicate(true)
 	var result: Array = []
+	var cancel := Semaphore.new()
 	_dev_level = id
 	_dev_result = result
+	_dev_cancel = cancel
 	_dev_task = WorkerThreadPool.add_task(func() -> void:
 		var started := Time.get_ticks_usec()
-		var solved := SolverV2.solve(defn, PuzzleState.from_definition(defn), 8000)
+		var solved := SolverV2.solve(defn, PuzzleState.from_definition(defn), 8000, 0, cancel)
 		result.append("%s (%d)" % [str(solved["status"]), int(solved["solution_length"])])
 		result.append(float(Time.get_ticks_usec() - started) / 1000.0), false, "dev solvability readout")
 
@@ -252,3 +256,17 @@ func _poll_dev_solve() -> void:
 	_refresh_status()
 	# The player may have switched level while that solve ran.
 	_start_dev_solve()
+
+## Leaving the screen (menu, scene change, app quit) stops a running solve at its next
+## expansion and waits for it, instead of leaving solver script code running into engine
+## shutdown. A cancelled level is not cached, so it is solved again on its next visit.
+func _exit_tree() -> void:
+	if _dev_task == -1:
+		return
+	var finished := WorkerThreadPool.is_task_completed(_dev_task)
+	if not finished:
+		_dev_cancel.post()
+	WorkerThreadPool.wait_for_task_completion(_dev_task)
+	_dev_task = -1
+	if finished and _dev_result.size() == 2:
+		_dev_verdicts[_dev_level] = str(_dev_result[0])

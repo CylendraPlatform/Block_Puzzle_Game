@@ -130,7 +130,7 @@ func _pump(screen: Control) -> void:
 
 func _wait_dev_solve(screen: Control) -> void:
 	var polls := 0
-	while _pilot._dev_task != -1 and polls < 3000:
+	while screen._dev_task != -1 and polls < 3000:
 		OS.delay_msec(5)
 		screen._process(0.0)
 		polls += 1
@@ -309,22 +309,22 @@ func _selector_and_dev_solver() -> void:
 		return
 	(picks["adv-003"] as Button).pressed.emit()
 	_ok(str(screen._definition.get("id", "")) == "adv-003" and screen._title.text == "Advanced QA 3", "selector opens adv-003 directly, without finishing earlier levels")
-	_ok(_pilot._dev_task != -1 and screen._status.text.contains("solving..."), "adv-003's dev solve runs on a worker; loading did not wait for it")
+	_ok(screen._dev_task != -1 and screen._status.text.contains("solving..."), "adv-003's dev solve runs on a worker; loading did not wait for it")
 	_wait_dev_solve(screen)
 	_ok(screen._status.text.contains("SOLVED (3)"), "dev readout shows the worker's verdict: %s" % screen._status.text)
 	var w3 := _witness(screen._definition)
 	screen._on_commit(w3[0])
-	var solve_started: bool = _pilot._dev_task != -1
+	var solve_started: bool = screen._dev_task != -1
 	_pump(screen)
 	screen._on_undo()
-	solve_started = solve_started or _pilot._dev_task != -1
+	solve_started = solve_started or screen._dev_task != -1
 	screen._on_restart()
-	solve_started = solve_started or _pilot._dev_task != -1
+	solve_started = solve_started or screen._dev_task != -1
 	_ok(not solve_started and screen._status.text.contains("SOLVED (3)"), "commit / undo / restart never start a solve (verdict read from cache)")
 	screen._on_commit(w3[0])
 	_ok(screen._board.transition_active(), "an adv-003 move is animating before the level switch")
 	(picks["adv-002"] as Button).pressed.emit()
 	_ok(str(screen._definition.get("id", "")) == "adv-002" and screen._session.move_count() == 0 and not screen._session.input_locked and not screen._board.transition_active(), "switching level mid-transition reconciles and starts the new level unlocked")
 	_wait_dev_solve(screen)
-	_ok(_pilot._dev_task == -1, "no dev solve left in flight")
+	_ok(screen._dev_task == -1, "no dev solve left in flight")
 	screen.queue_free()

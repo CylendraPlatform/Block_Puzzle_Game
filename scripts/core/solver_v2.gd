@@ -11,6 +11,10 @@ extends RefCounted
 ##
 ## time_budget_ms > 0 adds a wall-clock cap: exceeding it returns UNKNOWN_CAP_REACHED
 ## (a recorded limitation, never UNSOLVABLE). profile_* expose the last search's time split.
+##
+## cancel (optional) lets the owner of a worker-thread solve stop it: after cancel.post()
+## the search returns UNKNOWN_CAP_REACHED at its next expansion. try_wait() is thread-safe.
+## Null (every gameplay, metric and benchmark caller) leaves the search unchanged.
 
 static var profile_legal_us := 0
 static var profile_transition_us := 0
@@ -22,7 +26,7 @@ static var _clock := Callable()
 static func _now_us() -> int:
 	return int(_clock.call()) if _clock.is_valid() else Time.get_ticks_usec()
 
-static func solve(definition: Dictionary, initial_state: PuzzleState, max_states: int = 200000, time_budget_ms: int = 0) -> Dictionary:
+static func solve(definition: Dictionary, initial_state: PuzzleState, max_states: int = 200000, time_budget_ms: int = 0, cancel: Semaphore = null) -> Dictionary:
 	profile_legal_us = 0
 	profile_transition_us = 0
 	var diags := LevelValidator.validate_v2(definition)
@@ -41,12 +45,12 @@ static func solve(definition: Dictionary, initial_state: PuzzleState, max_states
 	context.walls = PuzzleEngine._wall_cells(definition)
 	context.bounds = PuzzleEngine._bounds(definition)
 	context.simple = PuzzleEngine.is_simple(definition)
-	var searched := _search(definition, initial_state, max_states, context, time_budget_ms)
+	var searched := _search(definition, initial_state, max_states, context, time_budget_ms, cancel)
 	if str(searched["status"]) != PuzzleEngine.SOLVED:
 		return searched
 	return _checked(definition, initial_state, int(searched["explored_states"]), searched["witness"])
 
-static func _search(definition: Dictionary, initial_state: PuzzleState, max_states: int, context: PuzzleSearchContext, time_budget_ms: int = 0) -> Dictionary:
+static func _search(definition: Dictionary, initial_state: PuzzleState, max_states: int, context: PuzzleSearchContext, time_budget_ms: int = 0, cancel: Semaphore = null) -> Dictionary:
 	# Each queue entry carries its own search key so a popped state never re-hashes it.
 	var start_key := initial_state.search_key()
 	var queue: Array = [[initial_state, start_key]]
@@ -59,6 +63,8 @@ static func _search(definition: Dictionary, initial_state: PuzzleState, max_stat
 		if explored >= max_states:
 			return _result(PuzzleEngine.UNKNOWN_CAP_REACHED, explored, -1, [], [])
 		if deadline > 0 and _now_us() > deadline:
+			return _result(PuzzleEngine.UNKNOWN_CAP_REACHED, explored, -1, [], [])
+		if cancel != null and cancel.try_wait():
 			return _result(PuzzleEngine.UNKNOWN_CAP_REACHED, explored, -1, [], [])
 		explored += 1
 		var entry: Array = queue[head]
