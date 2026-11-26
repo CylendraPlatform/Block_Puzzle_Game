@@ -1,3 +1,30 @@
+# TD-3.6 — Puzzle depth & gameplay production (P0–P1 corrections)
+
+**Status:** P0 provisionally accepted. P1 solver validity accepted; fixture design rejected as generator seeds. Eight additional polyomino candidates are on `feat/td36-puzzle-depth-production` (PR #8) for product playtest. No human playtest. P2–P5 not started. Do not merge PR #6, #7, or #8. Do not bulk-generate.
+**Parent:** `feat/td35-premium-playful-visuals` / PR #7 (unmerged), stacked on PR #6.
+**Spec:** `docs/tasks/TD-3_6_IMPLEMENTATION.md`, `docs/v2/TD36_*.md`.
+**Proofs:** `docs/v2/TD36_P1_BENCHMARKS.md`, `docs/v2/TD36_P1_CANDIDATES.md`, `docs/v2/td36_level_cards.json`, `levels_v2/td36/`.
+
+`PuzzleMetrics` still times `SolverV2.solve` (cap 80 000). It now also labels `mechanism_family`, `interaction_pattern`, `genuine_multi_piece`, shape classes (including S/Z vs L), structural fingerprints, and pairwise similarity. `human_difficulty` is always `unmeasured`. `UNKNOWN_CAP_REACHED` is not treated as unsolvable.
+
+`td36-001`–`008` stay technical fixtures (lengths 5, 6, 15, 18, 29, 22, 27, 31). `td36-009`–`016` are connected polyomino candidates (T, S, Z, I, L, plus). Shortest lengths 5, 5, 4, 5, 6, 5, 4, 6. None is `siding_1d`. Pairwise similarity among candidates is below 0.80. Dev menu **TD-3.6 QA** uses `user://td36_qa.save` only. `levels/`, `levels_v2/pilot/`, `user://progress.save`, `user://pilot_v2.save`, and the Play route are unchanged.
+
+Godot 4.7.2, Windows, 2026-11-25 (Asia/Baghdad):
+
+| Command | Exit |
+| --- | --- |
+| `--headless --script res://test/test_td36_metrics.gd` | 0 |
+| `--headless --script res://test/test_td36_benchmarks.gd` | 0 (16 SOLVED, fixtures lengths unchanged, candidates not siding, no candidate near-duplicates, catalog 100, pilot 15, no progress.save) |
+| `--script res://test/test_td36_shots.gd` | 0 (16 PNGs, 360×800) |
+| `--script res://test/test_layout.gd` | 0 (player menu hides TD-3.6 QA; debug menu shows it in the safe area) |
+| `--headless --script res://test/test_v2_pilot.gd` | 0 (15 SOLVED) |
+| `--headless --script res://test/test_v2_session.gd` | 0 |
+| `--headless --script res://test/validate_all.gd` | 0 (`validated 100 levels, 0 failure(s)`) |
+
+Debug APK published as prerelease `td36-qa-debug` at commit `467b2d7`: https://github.com/CylendraPlatform/Block_Puzzle_Game/releases/tag/td36-qa-debug . File `BlockPuzzle-TD36-QA-debug.apk`, 63,082,110 bytes. Local SHA-256 `614FB3E1A569F669CEB385E3B564793CCE795F26D517E1F2306478F6F93DF08E`. `apksigner` verified v2 and v3. Pack contains 16 `levels_v2/td36/*.json` files. Not in git. The same release holds 16 desktop start-position PNGs.
+
+Desktop PNGs: `build/qa/td36/` (gitignored). P2 not started. Human difficulty unmeasured. Do not merge PR #6, #7, or #8.
+
 # TD-3.5 — Premium playful visuals
 
 **Status:** Implemented on `feat/td35-premium-playful-visuals`. Not accepted. No physical Android device session and no owner visual sign-off.

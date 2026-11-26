@@ -19,12 +19,18 @@ GODOT="D:/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe"
 ```
 Output: `build/android/BlockPuzzle-debug.apk` (~55 MB; signed with the debug keystore, verified by apksigner).
 
-The local `export_presets.cfg` is gitignored. Its `include_filter` must list both `levels/*.json` and `levels_v2/pilot/*.json`, or the debug APK will omit the v2 pilot files. Debug exports show **Editor** and **v2 Pilot** because `OS.is_debug_build()` is true. A release export does not. Signing stays on the machine debug keystore at `%APPDATA%\Godot\keystores\debug.keystore`. Do not commit that keystore or an APK.
+The local `export_presets.cfg` is gitignored. Its `include_filter` must list `levels/*.json`, `levels_v2/pilot/*.json`, and `levels_v2/td36/*.json`, or the debug APK will omit those JSON packs. Debug exports show **Editor**, **v2 Pilot**, and **TD-3.6 QA** because `OS.is_debug_build()` is true. A release export does not. Signing stays on the machine debug keystore at `%APPDATA%\Godot\keystores\debug.keystore`. Do not commit that keystore or an APK.
 
 A TD-3 QA package uses the same debug preset and this output path:
 
 ```bash
 "$GODOT" --headless --path . --export-debug "Android" build/android/BlockPuzzle-TD3-QA-debug.apk
+```
+
+A TD-3.6 QA package uses the same preset:
+
+```bash
+"$GODOT" --headless --path . --export-debug "Android" build/android/BlockPuzzle-TD36-QA-debug.apk
 ```
 
 ## Smoke-test without a device (headless)

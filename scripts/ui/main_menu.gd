@@ -41,6 +41,9 @@ func _build() -> void:
 		var pilot := UIKit.button("v2 Pilot", _on_pilot)
 		TD35Theme.style_button(pilot, false)
 		column.add_child(pilot)
+		var td36 := UIKit.button("TD-3.6 QA", _on_td36)
+		TD35Theme.style_button(td36, false)
+		column.add_child(td36)
 	var settings := UIKit.button("Settings", _on_settings)
 	TD35Theme.style_button(settings, false)
 	column.add_child(settings)
@@ -57,6 +60,9 @@ func _on_editor() -> void:
 
 func _on_pilot() -> void:
 	get_tree().change_scene_to_file("res://scenes/Pilot.tscn")
+
+func _on_td36() -> void:
+	get_tree().change_scene_to_file("res://scenes/Td36Qa.tscn")
 
 func _on_settings() -> void:
 	get_tree().change_scene_to_file("res://scenes/SettingsScreen.tscn")

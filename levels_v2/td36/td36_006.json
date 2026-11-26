@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "id": "td36-006",
+  "name": "Two Against Three",
+  "board": {
+    "cols": 8,
+    "rows": 2,
+    "walls": [[0, 0], [1, 0], [2, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+  },
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0]], "pos": [1, 1], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [4, 1], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [5, 1], "required": true, "reveal": "visible"},
+    {"id": "purple", "color": "purple", "cells": [[0, 0]], "pos": [6, 1], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "east", "side": "right", "lo": 1, "hi": 1, "accept": ["red", "blue"], "initial_state": "open"},
+    {"id": "west", "side": "left", "lo": 1, "hi": 1, "accept": ["yellow", "orange", "purple"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "Two heading east meet three heading west.",
+    "intent": "The larger westbound group has to be shuttled past a pair of eastbound tiles."
+  }
+}

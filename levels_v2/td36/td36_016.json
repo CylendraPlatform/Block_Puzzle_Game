@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-016",
+  "name": "Plus in the Well",
+  "board": {"cols": 5, "rows": 5, "walls": [[0, 0], [4, 0]]},
+  "pieces": [
+    {"id": "purple", "color": "purple", "cells": [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], "pos": [1, 0], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [0, 3], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[1, 0], [2, 0], [0, 1], [1, 1]], "pos": [2, 3], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [4, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "purple_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["purple"], "initial_state": "open"},
+    {"id": "blue_left", "side": "left", "lo": 3, "hi": 4, "accept": ["blue"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 3, "hi": 4, "accept": ["green"], "initial_state": "open"},
+    {"id": "yellow_left", "side": "left", "lo": 4, "hi": 4, "accept": ["yellow"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The plus only fits a three-column well.",
+    "intent": "A five-cell plus sits on an L and an S. Both must leave sideways so the plus can take the floor."
+  }
+}

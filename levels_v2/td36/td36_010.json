@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-010",
+  "name": "Three-Wide Lane",
+  "board": {"cols": 5, "rows": 4, "walls": [[0, 0]]},
+  "pieces": [
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [1, 0], [2, 0]], "pos": [0, 1], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [0, 1], [1, 1]], "pos": [3, 0], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [1, 2], "required": true, "reveal": "visible"},
+    {"id": "orange", "color": "orange", "cells": [[0, 0]], "pos": [3, 2], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "blue_bottom", "side": "bottom", "lo": 2, "hi": 4, "accept": ["blue"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 0, "hi": 1, "accept": ["green"], "initial_state": "open"},
+    {"id": "yellow_left", "side": "left", "lo": 2, "hi": 2, "accept": ["yellow"], "initial_state": "open"},
+    {"id": "orange_right", "side": "right", "lo": 2, "hi": 2, "accept": ["orange"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "The bar only fits the right three floor columns.",
+    "intent": "An I-tromino must slide two columns. An L occupies the slide, and two keys occupy the landing row."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "td36-015",
+  "name": "Domino Plug",
+  "board": {"cols": 5, "rows": 5, "walls": [[4, 0]]},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[1, 0], [0, 1], [1, 1], [2, 1]], "pos": [1, 0], "required": true, "reveal": "visible"},
+    {"id": "green", "color": "green", "cells": [[0, 0], [1, 0], [0, 1]], "pos": [3, 2], "required": true, "reveal": "visible"},
+    {"id": "blue", "color": "blue", "cells": [[0, 0], [1, 0]], "pos": [1, 4], "required": true, "reveal": "visible"},
+    {"id": "yellow", "color": "yellow", "cells": [[0, 0]], "pos": [3, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_bottom", "side": "bottom", "lo": 1, "hi": 3, "accept": ["red"], "initial_state": "open"},
+    {"id": "green_right", "side": "right", "lo": 2, "hi": 3, "accept": ["green"], "initial_state": "open"},
+    {"id": "blue_left", "side": "left", "lo": 4, "hi": 4, "accept": ["blue"], "initial_state": "open"},
+    {"id": "yellow_right", "side": "right", "lo": 4, "hi": 4, "accept": ["yellow"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "prompt": "A two-cell plug covers the T's floor span.",
+    "intent": "The T needs columns 1-3 on the floor. A domino covers 1-2 and an L occupies the right side of that landing."
+  }
+}

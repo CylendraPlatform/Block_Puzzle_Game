@@ -10,6 +10,7 @@ local.properties
 .godot/
 export_presets.cfg
 *.import
+*.translation
 
 # IDE / OS
 .idea/
