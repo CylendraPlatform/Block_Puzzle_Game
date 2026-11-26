@@ -165,12 +165,15 @@ func _on_commit(action: PuzzleAction) -> void:
 	_refresh_status()
 
 func _process(delta: float) -> void:
-	if _lock_left <= 0.0 or _session == null:
+	if _session == null:
 		return
 	# Stay locked until both the move settle and any transition flashes finish, so no
-	# second action can be committed while the board is animating.
-	_lock_left -= delta
-	if _lock_left <= 0.0 and not _board.flashes_active():
+	# second action can be committed while the board is animating. Retry every frame:
+	# if flashes outlive the settle timer (a frame hitch, or an event queued on a
+	# non-leaving move), the release still fires once they clear instead of stalling.
+	if _lock_left > 0.0:
+		_lock_left -= delta
+	if _lock_left <= 0.0 and _session.input_locked and not _board.flashes_active():
 		_session.input_locked = false
 		_board.set_locked(false)
 
