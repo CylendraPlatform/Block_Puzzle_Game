@@ -4,12 +4,19 @@ extends SceneTree
 ## 1. CampaignCatalog: the 100 Classic levels keep stable ids legacy-1..100 in save-index order.
 ## 2. For every legacy level, the legacy Play rules (Rules.slide_result: every landing of 1..max
 ##    steps, plus the exit) and the v2 PuzzleEngine (LevelLoader output) offer the same successor
-##    states, compared on (a) a bounded BFS of BFS_CAP states, (b) every state of a shortest legacy
-##    solution, which exercises every exit, and (c) WALKS seeded random walks per level.
-## 3. The only allowed difference is the legacy pass-through exit (a block leaving through its
+##    states, compared on (a) a bounded BFS of BFS_CAP states, (b) every state of one selected
+##    shortest legacy solution (the first one BFS finds), which exercises every exit, and
+##    (c) WALKS seeded random walks per level.
+## 3. Every level's shortest legacy solution length (full slides + exits, the move set par was
+##    computed with) equals its stored par.
+## 4. The only allowed difference is the legacy pass-through exit (a block leaving through its
 ##    gate while a wall or block still sits in front of one of its cells; v2 corrects this, see
-##    docs/LEVEL_SYSTEM.md). It must occur in exactly levels 021, 080 and 090, and v2 must still
-##    solve those three in exactly their stored par, with a witness that replays to a win.
+##    docs/LEVEL_SYSTEM.md, decision D1). It must be reachable in exactly the 11 levels
+##    021, 024, 044, 046, 061, 076, 080, 081, 086, 088 and 090. v2 must still solve 021, 080 and
+##    090 in exactly their stored par, with a SolverV2 witness that replays to a win.
+## Witness vs. all optima: (b) and PAR_PATH_LEVELS describe the one selected shortest legacy
+## witness only. Other optimal legacy solutions are not enumerated; a level outside PAR_PATH_LEVELS
+## may still have an optimal solution that uses a pass-through exit.
 ## Deterministic: fixed caps, fixed seeds, sorted keys. Writes nothing.
 
 const BFS_CAP := 400
@@ -21,7 +28,8 @@ const V2_SOLVE_CAP := 200000
 ## Legacy levels where a pass-through exit is reachable within the bounded exploration below
 ## (the corrected exit rule, D1, removes those moves in v2). Exact set: a change either way fails.
 const PASS_THROUGH_LEVELS := [21, 24, 44, 46, 61, 76, 80, 81, 86, 88, 90]
-## Levels whose shortest legacy (par) solution itself takes a pass-through exit.
+## Levels whose selected shortest legacy witness takes a pass-through exit (not a claim about
+## every optimal solution).
 const PAR_PATH_LEVELS := [21, 90]
 ## Levels whose v2 optimum is solved and compared with the stored par (M1.3-B scope).
 const V2_PAR_LEVELS := [21, 80, 90]
@@ -227,6 +235,7 @@ func _compare_level(entry: Dictionary) -> Dictionary:
 	var path := _shortest_legacy(level, start)
 	_check(not path.is_empty(), "%s has a legacy solution within %d states" % [name, SOLVE_CAP])
 	if not path.is_empty():
+		_check(path.size() - 1 == int(entry["par"]), "%s shortest legacy solution length %d == stored par %d" % [name, path.size() - 1, int(entry["par"])])
 		var r2 := _follow(name + " path", level, defn, path, v2_start)
 		row["path"] = path.size() - 1
 		row["path_needs_pass_through"] = bool(r2["needs_pass_through"])

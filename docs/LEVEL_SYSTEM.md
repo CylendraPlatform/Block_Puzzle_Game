@@ -51,9 +51,11 @@ pins its exact impact on the 100 shipped levels:
 - The only difference allowed is a legacy-only pass-through exit. Within that bounded
   exploration it is reachable in exactly 11 levels: **021, 024, 044, 046, 061, 076,
   080, 081, 086, 088, 090**. A new or vanished difference anywhere fails the test.
-- In 9 of them it only appears off the par route: the shortest legacy solution replays
-  unchanged in v2 and wins in `par` moves. Only in **021 and 090** does the shortest
-  legacy solution itself use a pass-through exit.
+- Every level's shortest legacy solution length equals its stored `par`.
+- In 9 of the 11, the selected shortest legacy solution (the first one BFS finds) avoids
+  the pass-through exit, replays unchanged in v2 and wins in `par` moves. Only in **021
+  and 090** does that selected solution use one. This describes one witness per level,
+  not every optimal solution.
 - 021, 080 and 090 are solved by `SolverV2` in v2: shortest length equals the stored
   `par` (021: 3, 080: 7, 090: 5) and the witness replays to a win, so their star
   thresholds stay valid. (080 was flagged by the first, narrower M1.3 audit.)

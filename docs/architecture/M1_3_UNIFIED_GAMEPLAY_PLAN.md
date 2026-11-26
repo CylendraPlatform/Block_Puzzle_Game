@@ -92,9 +92,10 @@ levels and a seeded random walk for large ones); a later full-proof check is opt
 > **M1.3-B update (wider coverage).** `test/test_classic_equivalence.gd` compares 400 BFS
 > states, the shortest legacy solution and 12 seeded random walks per level. It confirms the
 > pass-through exit is the **only** kind of difference, but finds it reachable in **11**
-> levels, not 3: 021, 024, 044, 046, 061, 076, 080, 081, 086, 088, 090. The 8 new ones only
-> reach it off the par route (their shortest legacy solution replays unchanged in v2 and wins
-> in `par`); only 021 and 090 use it on the shortest legacy solution. D1 is unchanged: no
+> levels, not 3: 021, 024, 044, 046, 061, 076, 080, 081, 086, 088, 090. For the 8 new ones
+> the selected shortest legacy solution (first found by BFS) avoids it, replays unchanged in
+> v2 and wins in `par`; only 021 and 090's selected solution uses it (one witness per level,
+> not all optimal solutions). Every level's shortest legacy length equals its stored `par`. D1 is unchanged: no
 > level file is edited, every level keeps its `par`, and the exact 11-level set is pinned by
 > the test. The owner accepted this 11-level scope under D1 on 2026-11-26. See
 > `docs/LEVEL_SYSTEM.md` (exit rule).
