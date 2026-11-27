@@ -11,7 +11,14 @@ const SCENES := [
 	["game_pause", "res://scenes/Game.tscn", "pause"],
 	["game_win", "res://scenes/Game.tscn", "win"],
 	["editor", "res://scenes/Editor.tscn", ""],
+	["game_v2", "res://scenes/GameScreen.tscn", ""],
+	["game_v2_pause", "res://scenes/GameScreen.tscn", "pause"],
+	["game_v2_win", "res://scenes/GameScreen.tscn", "win"],
+	["game_v2_win_unsaved", "res://scenes/GameScreen.tscn", "win_unsaved"],
+	["game_v2_leave_unsaved", "res://scenes/GameScreen.tscn", "win_leave_unsaved"],
 ]
+## GameScreen reads progress through the Progress autoload; point it at a throwaway folder.
+const PROGRESS_DIR := "user://layout_qa_progress/"
 
 var _fails := 0
 var _shots := 0
@@ -32,6 +39,8 @@ func _initialize() -> void:
 	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
 	var out := ProjectSettings.globalize_path("res://build/qa/layout")
 	DirAccess.make_dir_recursive_absolute(out)
+	DirAccess.make_dir_recursive_absolute(PROGRESS_DIR)
+	root.get_node("Progress").open_store(PROGRESS_DIR)
 
 	var cases := [
 		{"name": "360x800", "size": Vector2i(360, 800), "insets": Vector4(0, 96, 0, 48)},
@@ -58,10 +67,19 @@ func _initialize() -> void:
 				await process_frame
 			if spec[2] == "pause":
 				node._set_pause(true)
-			elif spec[2] == "win":
+			elif spec[2].begins_with("win"):
+				if spec[2].ends_with("unsaved"):
+					node._recorded = true
+					node._save_status = "failed"
+					node._show_save_status()
+				if spec[2] == "win_leave_unsaved":
+					node._confirm_layer.visible = true
 				node._win_name.text = "Level 1 — Layout"
 				node._win_stars.text = "2 / 3 Stars"
-				node._set_win(true)
+				if node.has_method("_set_win"):
+					node._set_win(true)
+				else:
+					node._win_layer.visible = true
 			await process_frame
 			await process_frame
 			_check_scene(node, spec[0], case)
@@ -82,6 +100,9 @@ func _initialize() -> void:
 	await _shot(out, "360x800_menu_dev.png")
 	menu.queue_free()
 
+	for f in DirAccess.get_files_at(PROGRESS_DIR):
+		DirAccess.remove_absolute(PROGRESS_DIR + f)
+	DirAccess.remove_absolute(PROGRESS_DIR.trim_suffix("/"))
 	print("== screenshots: %d  failures: %d ==" % [_shots, _fails])
 	quit(_fails)
 

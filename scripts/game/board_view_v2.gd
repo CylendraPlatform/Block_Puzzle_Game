@@ -15,6 +15,10 @@ const EXIT_PAST := 0.34
 ## zone the same exit needs only this shorter push past the last landing.
 const EXIT_PAST_AT_EDGE := 0.12
 const EDGE_ZONE := 48.0
+## Project settings that tune the two thresholds above (M1.3 D4); the constants are the
+## defaults and the fallback for a missing or non-positive value.
+const EXIT_PAST_SETTING := "gameplay/exit_past"
+const EXIT_PAST_EDGE_SETTING := "gameplay/exit_past_edge"
 
 var definition: Dictionary = {}
 var state: PuzzleState
@@ -231,10 +235,19 @@ static func choose_action(actions: Array, origin: Vector2i, direction: String, s
 		return by_dist[want]
 	return null
 
+## Cells of push past the last landing that turn a drag into an exit.
+static func exit_past(near_edge: bool) -> float:
+	var key := EXIT_PAST_EDGE_SETTING if near_edge else EXIT_PAST_SETTING
+	var fallback := EXIT_PAST_AT_EDGE if near_edge else EXIT_PAST
+	var value: Variant = ProjectSettings.get_setting(key, fallback)
+	if not (value is float or value is int) or float(value) <= 0.0:
+		return fallback
+	return float(value)
+
 static func steps_for_drag(travel_cells: float, max_dist: int, exit_ready: bool, near_edge: bool) -> int:
 	if travel_cells < 0.5:
 		return 0
-	var past := EXIT_PAST_AT_EDGE if near_edge else EXIT_PAST
+	var past := exit_past(near_edge)
 	if exit_ready and travel_cells >= float(max_dist) + past:
 		return max_dist + 1
 	var landed := int(round(travel_cells))

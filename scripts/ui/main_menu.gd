@@ -28,7 +28,7 @@ func _build() -> void:
 
 	column.add_child(UIKit.wrapping_label("Block Puzzle", 40, TD35Theme.NAVY))
 	column.add_child(UIKit.wrapping_label("Slide & Exit", 18, TD35Theme.FRAME))
-	var lvl: int = clampi(Catalog.load_unlocked() + 1, 1, 100)
+	var lvl: int = clampi(_unlocked() + 1, 1, 100)
 	column.add_child(UIKit.wrapping_label("Level %d" % lvl, 20, TD35Theme.NAVY))
 	var play := UIKit.button("Play", _on_play)
 	TD35Theme.style_button(play, true)
@@ -53,12 +53,20 @@ func _build() -> void:
 	TD35Theme.style_button(settings, false)
 	column.add_child(settings)
 
+## Classic progress from the route the engine flag selects (legacy: progress.save via Catalog,
+## already resynchronised by the Progress autoload at startup; v2: ProgressStore).
+static func _unlocked() -> int:
+	if GameRoute.uses_v2():
+		return Progress.get_store().unlocked(CampaignCatalog.CLASSIC)
+	return Catalog.load_unlocked()
+
 func _on_play() -> void:
 	Settings.selected_level = -1   # resume at saved progress
-	get_tree().change_scene_to_file("res://scenes/Game.tscn")
+	Settings.custom_level = null
+	GameRoute.go(get_tree(), GameRoute.game_scene())
 
 func _on_levels() -> void:
-	get_tree().change_scene_to_file("res://scenes/LevelSelect.tscn")
+	GameRoute.go(get_tree(), GameRoute.LEVELS_SCENE)
 
 func _on_editor() -> void:
 	get_tree().change_scene_to_file("res://scenes/Editor.tscn")
