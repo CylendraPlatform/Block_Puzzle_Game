@@ -33,7 +33,7 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 |Undo during a level does not change stored stars|Met|049: Undo + win shows 2 stars, stored stays 3|
 |Complete at least 3 Classic levels including one of 021/080/090|**Met** (round 3)|021 (par, 3 stars), 049 (2-star replay, stored 3) and 001 (par, 3 stars, `shots/03_level1_win`). Stored stars and unlock unchanged.|
 |Editor Test plays a custom level and writes no progress (F5)|**Met on the device with the fix in PR #21 (not yet merged)**|Round 3 found the editor unusable on a touchscreen: one tap reached `EditorCanvas._gui_input` twice (`InputEventScreenTouch` plus the emulated mouse click) and the toggle tools undid themselves (`m13r_device/shots/12a`, `12b`; pre-existing since `1473bc4`). PR #21 skips the emulated copy (new `test_editor_input`, red → green). With that build on the M31: blocks and gates placed, Validate "SOLVABLE (min moves: 2)", Test opened "Custom Level" on the v2 GameScreen, won in 2 moves, Back to Editor returned, saves byte-identical, no files written (`build/qa/f5_device/`). F5 closes when PR #21 merges.|
-|**Visual sign-off of the Pearl theme on the device (D3)**|**Open — owner decision**|Device screenshots after the F1–F4 fixes: `build/qa/m13d_device/fix/30–36` (menu, Pearl Level Select, game, pause).|
+|**Visual sign-off of the Pearl theme on the device (D3)**|**Open — owner decision**|Review pack with checklist: `docs/qa/pearl_signoff/` (device: menu, Level Select, game, pause, win card, Editor Test; desktop: save-problem dialogs).|
 |Rollback rehearsal: legacy build `install -r` → confirm progress → play one Classic level → reinstall v2 → confirm the new progress is merged|**Met for the round trip; merge of new progress not exercised**|Round 3: legacy build over v2, level 001 won on the legacy route; the legacy `Catalog` wrote nothing (no improvement); v2 reinstalled, menu Level 54, Level Select stars equal, both save files byte-identical before and after. A merge of *new* legacy progress only happens when the legacy build records an improvement, which would change the player's stars or unlock on this device; that case is covered by `test_progress_store` with the real legacy `Catalog`, not on the device.|
 |No crash / ANR / Godot script error in logcat|Met|v2, rollback, fix-build and round-3 sessions: 0 error lines|
 |Commit handling time recorded|**Met** (round 3)|`[perf] commit_ms` (QA-only instrumentation, see §6): non-winning commits **5.7–10.0 ms** (12 samples); winning commits incl. both save writes **30.9–50.0 ms** (4 samples; 50.0 ms was the first, cold write). FPS is not claimed.|
@@ -42,8 +42,8 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 
 |Item|Status|Note|
 |---|---|---|
-|**Release note for the strict-exit rule correction (D1)**|**Open**|Plan §3.2 requires it in the Classic release notes; no release-notes file exists yet. The rule ("a block exits only when nothing in the board is in its way") and the 11 affected levels are documented in `docs/LEVEL_SYSTEM.md`, which can serve as the source for player-facing wording.|
-|Rollback path for players|Ready by design|A rollback ships as a new release built with `gameplay/engine = legacy`; `ProgressStore` stays in it and resyncs `progress.save` at startup (§5.5). Requires a higher Android `version/code` than the activation build (`export_presets.cfg` is still `version/code=1`).|
+|Release note for the strict-exit rule correction (D1)|**Drafted — awaiting review**|`docs/release/M1_3_ACTIVATION_RELEASE_NOTE.md`|
+|Rollback path for players|**Plan drafted — awaiting review**|`docs/release/ANDROID_VERSIONING_AND_ROLLBACK.md`: rollback = new release (code 3) built with `gameplay/engine = legacy`; `ProgressStore` stays in it and resyncs `progress.save` at startup (§5.5). Needs a release keystore first.|
 |How save failures are shown|Ready|`saved` / `partial` / `failed` (Next blocked, leave prompt) / `read_only` messages — see the QA report.|
 |Level Select campaign tabs|Not needed for phase 1|Only Classic exists; tabs arrive with Chapter 1 (phase 2).|
 |Legacy route visuals|Changed slightly|Shared 48 dp buttons and full-screen modal dim (PR #19) already apply to the legacy default.|
@@ -63,12 +63,23 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 
 ## 5. What remains before the activation PR
 
-After the round-3 device checks (§6), three items remain:
+After the round-3 device checks (§6):
 
 1. **F5 — merge PR #21** (editor touch fix). Editor Test already passed on the M31 with it.
-2. Owner visual sign-off of the Pearl theme on the device (D3).
-3. Release note for the D1 strict-exit correction, and a `version/code` plan for release and
-   rollback builds.
+   F5 is marked closed only after #21 is merged and `main` CI is green.
+2. **Owner visual sign-off of the Pearl theme (D3)** — review pack prepared:
+   `docs/qa/pearl_signoff/` (8 screenshots + checklist). Awaiting the owner.
+3. **Release note** — drafted: `docs/release/M1_3_ACTIVATION_RELEASE_NOTE.md` (store text
+   483 characters, support wording, internal level list). Awaiting review.
+4. **versionCode and rollback plan** — drafted: `docs/release/ANDROID_VERSIONING_AND_ROLLBACK.md`
+   (activation code 2 / 0.2.0 with `v2`; rollback code 3 / 0.2.1 with `legacy`; same release
+   key). Prerequisite found: no release keystore is configured yet, and `export_presets.cfg`
+   (where the code lives) is gitignored. Awaiting review.
+5. **Navigation investigation before default activation** — issue #23: one unexplained jump
+   to Level 2 after a win card (§6). No root cause is claimed; the issue lists the
+   investigation steps (logged button presses, input during scene changes).
+
+Tracked separately, not blocking: issue #22 (editor contents lost when returning from Test).
 
 Optional: exercising the merge of *new* legacy progress on the device needs the legacy build to
 record an improvement (for example raising a 1-star level), which changes the player's saved
@@ -93,4 +104,4 @@ device smoke test. It needs its own approval and is not merged automatically. Ch
 next taps ended on Level 2 (the log shows commits on `legacy-2`), as if Next had fired instead
 of Menu. Level 2 was not completed, so nothing was saved. Replaying the same taps and timing
 twice, and dragging from the Next button, all behaved correctly (Menu → main menu, Play →
-Level 54). Recorded for review; no cause found.
+Level 54). No cause found; tracked as issue #23, to be investigated before default activation.
