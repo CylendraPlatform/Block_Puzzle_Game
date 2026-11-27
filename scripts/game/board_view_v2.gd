@@ -454,8 +454,8 @@ func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 	var radius := int(clampf(_cell * 0.06, 2.0, 6.0))
 	for door in gate_doors(gate, cols, rows):
 		_round(_lane_rect(side, door, lane.x, lane.y).grow(-1.0), color, radius)
-		if lane.x == lane.y - 1:
-			_door_arrow(door.get_center(), _outward(side), minf(door.size.x, door.size.y) * 0.7)
+	for arrow in gate_arrows(gate, cols, rows):
+		draw_colored_polygon(arrow, Color(1, 1, 1, 0.9))
 	if locked:
 		_glyph_lock(rail.get_center())
 	var remaining := int(gstate.get("counter_remaining", -1))
@@ -516,22 +516,16 @@ func gate_lane(gate: Dictionary) -> Vector2i:
 		count += 1
 	return Vector2i(index, maxi(1, count))
 
-## The k-th of n depth lanes of a door (lane 0 next to the board).
+## The k-th of n lanes of a door: slices along the edge at the door's full depth (lane 0 at
+## the top / left end). Depth slices were too thin for a legible arrow at 360x800.
 func _lane_rect(side: String, r: Rect2, k: int, n: int) -> Rect2:
 	if n <= 1:
 		return r
-	match side:
-		"left":
-			var w := r.size.x / n
-			return Rect2(r.end.x - w * (k + 1), r.position.y, w, r.size.y)
-		"right":
-			var w2 := r.size.x / n
-			return Rect2(r.position.x + w2 * k, r.position.y, w2, r.size.y)
-		"top":
-			var h := r.size.y / n
-			return Rect2(r.position.x, r.end.y - h * (k + 1), r.size.x, h)
-	var h2 := r.size.y / n
-	return Rect2(r.position.x, r.position.y + h2 * k, r.size.x, h2)
+	if side == "left" or side == "right":
+		var h := r.size.y / n
+		return Rect2(r.position.x, r.position.y + h * k, r.size.x, h)
+	var w := r.size.x / n
+	return Rect2(r.position.x + w * k, r.position.y, w, r.size.y)
 
 func _outward(side: String) -> Vector2:
 	match side:
@@ -540,10 +534,42 @@ func _outward(side: String) -> Vector2:
 		"top": return Vector2.UP
 	return Vector2.DOWN
 
-## A small white arrow pointing out of the board, so direction does not rely on colour.
-func _door_arrow(center: Vector2, out: Vector2, s: float) -> void:
-	var across := Vector2(-out.y, out.x)
-	draw_colored_polygon(PackedVector2Array([center + out * s * 0.55, center - out * s * 0.35 + across * s * 0.5, center - out * s * 0.35 - across * s * 0.5]), Color(1, 1, 1, 0.9))
+## The gate's outward arrows (white triangles, tip first): one per door, centred in this
+## gate's own lane of the door and sized to fit inside it, so on a shared edge every colour
+## carries its own arrow and none crosses into another lane. A door under the lock / counter
+## marker gets no arrow.
+func gate_arrows(gate: Dictionary, cols: int, rows: int) -> Array[PackedVector2Array]:
+	var arrows: Array[PackedVector2Array] = []
+	var side := str(gate.get("side", ""))
+	var lane := gate_lane(gate)
+	var marker := gate_marker_rect(gate, cols, rows)
+	for door in gate_doors(gate, cols, rows):
+		var r := _lane_rect(side, door, lane.x, lane.y).grow(-1.0)
+		var s := minf(r.size.x, r.size.y) * 0.7
+		var out := _outward(side)
+		var across := Vector2(-out.y, out.x)
+		var c := r.get_center()
+		var tri := PackedVector2Array([c + out * s * 0.55, c - out * s * 0.35 + across * s * 0.5, c - out * s * 0.35 - across * s * 0.5])
+		var bounds := Rect2(tri[0], Vector2.ZERO).expand(tri[1]).expand(tri[2])
+		if marker.has_area() and marker.intersects(bounds):
+			continue
+		arrows.append(tri)
+	return arrows
+
+## Bounds of the lock glyph and / or counter badge drawn at the rail centre (empty if none).
+func gate_marker_rect(gate: Dictionary, cols: int, rows: int) -> Rect2:
+	var shown := shown_state()
+	var gstate: Dictionary = shown.gates.get(str(gate.get("id", "")), {}) if shown != null else {}
+	var center := gate_slot(gate, cols, rows).get_center()
+	var out := Rect2()
+	if str(gstate.get("mode", "OPEN")) == "LOCKED":
+		var s := clampf(_cell * 0.22, 8.0, 20.0)
+		out = Rect2(center - Vector2(s * 0.5, s * 0.5), Vector2(s, s * 1.1))
+	if int(gstate.get("counter_remaining", -1)) > 0:
+		var r := clampf(_cell * 0.2, 9.0, 18.0)
+		var badge := Rect2(center - Vector2(r, r), Vector2(r, r) * 2.0)
+		out = badge if not out.has_area() else out.merge(badge)
+	return out.grow(2.0) if out.has_area() else out
 
 ## A small padlock glyph (shackle arc + body) so a locked gate reads without colour.
 func _glyph_lock(center: Vector2) -> void:

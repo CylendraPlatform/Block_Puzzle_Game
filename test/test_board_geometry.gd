@@ -38,6 +38,7 @@ func _initialize() -> void:
 		for item in levels:
 			_check_level(view, item["name"], item["definition"], spec)
 		print("  %s %s: %d level(s) checked, %d failure(s)" % ["PASS" if _fails == before else "FAIL", spec["name"], levels.size(), _fails - before])
+	_check_markers(view, levels[5]["definition"])
 	_check_swipe(view, levels[0]["definition"])
 	view.queue_free()
 	print("== done: %d check(s), %d failure(s) ==" % [_checks, _fails])
@@ -106,6 +107,7 @@ func _check_level(view: BoardViewV2, name: String, defn: Dictionary, spec: Dicti
 		if not lanes_by_side.has(side):
 			lanes_by_side[side] = []
 		lanes_by_side[side].append(lane)
+		_check_arrows(view, tag, gate, cols, rows, doors, lane)
 	# Gates on one edge (all Classic shared edges overlap fully) get distinct lanes 0..n-1.
 	for side in lanes_by_side.keys():
 		var lanes: Array = lanes_by_side[side]
@@ -132,6 +134,54 @@ func _check_level(view: BoardViewV2, name: String, defn: Dictionary, spec: Dicti
 		if not bool(piece.get("revealed", true)):
 			continue
 		_ok(view._piece_at(view.cell_at(view.cell_center(piece["pos"]))) == str(id), "%s touch on %s grabs it" % [tag, id])
+
+## Arrow placement: one arrow per door, inside this gate's own lane of that door (so on a
+## shared edge it never crosses the lane boundary or touches the other colour), pointing out
+## of the board, and clear of the lock / counter marker.
+func _check_arrows(view: BoardViewV2, tag: String, gate: Dictionary, cols: int, rows: int, doors: Array[Rect2], lane: Vector2i) -> void:
+	var gid := str(gate.get("id", ""))
+	var side := str(gate["side"])
+	var out := view._outward(side)
+	var arrows := view.gate_arrows(gate, cols, rows)
+	var marker := view.gate_marker_rect(gate, cols, rows)
+	if not marker.has_area():
+		_ok(arrows.size() == doors.size(), "%s gate %s has one arrow per door (%d / %d)" % [tag, gid, arrows.size(), doors.size()])
+	for i in arrows.size():
+		var tri: PackedVector2Array = arrows[i]
+		var bounds := Rect2(tri[0], Vector2.ZERO).expand(tri[1]).expand(tri[2])
+		var inside := false
+		for door in doors:
+			if view._lane_rect(side, door, lane.x, lane.y).grow(-1.0 + EPS).encloses(bounds):
+				inside = true
+		_ok(inside, "%s gate %s arrow %d inside its own lane %d/%d" % [tag, gid, i, lane.x, lane.y])
+		_ok((tri[0] - bounds.get_center()).dot(out) > 0.0, "%s gate %s arrow %d points out of the board" % [tag, gid, i])
+		# Legibility floor: shared-edge arrows as large as single-gate ones (depth-limited).
+		var single := minf(doors[0].size.x, doors[0].size.y) - 2.0
+		_ok(minf(bounds.size.x, bounds.size.y) >= single * 0.7 * 0.9 - EPS, "%s gate %s arrow %d legible (%.1f units)" % [tag, gid, i, minf(bounds.size.x, bounds.size.y)])
+		_ok(not marker.has_area() or not marker.intersects(bounds), "%s gate %s arrow %d clear of the marker" % [tag, gid, i])
+
+## Locked + counter gates: the marker is non-empty, sits on the rail centre and no arrow
+## overlaps it (Level 6 at the 360x800 and M31 board sizes).
+func _check_markers(view: BoardViewV2, defn: Dictionary) -> void:
+	for spec in [VIEWS[0], VIEWS[3]]:
+		view.size = spec["size"]
+		var st := PuzzleState.from_definition(defn)
+		view.show_state(defn, st)
+		view._layout()
+		var cols := int(defn["board"]["cols"])
+		var rows := int(defn["board"]["rows"])
+		for gate in defn.get("gates", []):
+			var gid := str(gate.get("id", ""))
+			if not st.gates.has(gid):
+				continue
+			st.gates[gid]["mode"] = "LOCKED"
+			st.gates[gid]["counter_remaining"] = 3
+			var marker := view.gate_marker_rect(gate, cols, rows)
+			_ok(marker.has_area() and marker.has_point(view.gate_slot(gate, cols, rows).get_center()), "%s L6 gate %s marker on the rail centre" % [spec["name"], gid])
+			var doors := view.gate_doors(gate, cols, rows)
+			var arrows := view.gate_arrows(gate, cols, rows)
+			_ok(arrows.size() < doors.size(), "%s L6 gate %s drops the arrow under the marker (%d of %d)" % [spec["name"], gid, arrows.size(), doors.size()])
+			_check_arrows(view, "%s/L6-locked" % spec["name"], gate, cols, rows, doors, view.gate_lane(gate))
 
 ## A real swipe through _gui_input commits the same action choose_action picks for it.
 func _check_swipe(view: BoardViewV2, defn: Dictionary) -> void:

@@ -10,8 +10,8 @@ only. `.gdignore` keeps these files out of the Godot project import.
 **Gates (round 3).** Every Classic gate spans its whole edge in the level data (313 of 313),
 so a gate is drawn as one door per cell over exactly the rule's exit range `lo..hi`, each with
 an outward arrow, on a dark rail. Where two colours share an edge (levels 6, 7, 90, 91, 94, 95,
-97, 99) each door is split into one lane per colour; before this, only the last colour was
-visible.
+97, 99) each door is split along the edge into one half per colour, each with its own arrow
+(`gates/l06_shared_edge_closeup.png`); before this, only the last colour was visible.
 
 **Start here: `00_contact_sheet.png`**, then `11_before_after.png` and `12_responsive.png`.
 
@@ -70,6 +70,8 @@ That is unchanged.
 |`11_before_after.png`|Round-1 device captures vs round-2 renders; desktop 360×800 before / after|composed|
 |`12_responsive.png`|360×800, 393×852, 411×891, M31 canvas × (Level 54, Level 35, Pause, Win)|composed from `responsive/`|
 |`before/`|Round-1 files replaced by this round|device captures and desktop renders|
+|`gates/l06_shared_edge_closeup.png`|Level 6 shared red / blue edge, 360x800 and M31, with zoom|desktop renders|
+|`gates/l06_game_360x800.png`, `gates/l06_game_m31.png`|Level 6 game screen|desktop renders|
 
 Notes
 - **03–06 and 09–10 are desktop renders, not device captures.** The shared Galaxy M31 was not
