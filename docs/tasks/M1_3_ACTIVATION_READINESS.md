@@ -5,8 +5,8 @@ Levels open Classic on the v2 `GameScreen` (plan §4.2, phase 1)?
 
 **Answer: not yet.** The code, saves and automated gates are ready and every device criterion
 is met (F5 closed by PR #21). Issue #23 is investigated: no navigation defect reproduced, and the
-original event is explained by input that did not come from the test script (§7, owner decides
-whether to close it). Remaining blockers: Pearl D3 sign-off, the owner's confirmation of the
+original event is explained by input that did not come from the test script (§7); the owner
+closed #23 as not a game defect. Remaining blockers: Pearl D3 sign-off, the owner's confirmation of the
 highest distributed versionCode, a release keystore, and review of the release-metadata PR #24.
 Nothing here activates v2: `gameplay/engine` stays `legacy` on `main`.
 
@@ -85,7 +85,7 @@ After the round-3 device checks (§6):
    - release keystore: **not created** (owner, per `docs/release/ANDROID_SIGNING.md` in #24).
 5. **Issue #23 investigation** — **done; no defect reproduced** (§7): 15 fully logged
    repetitions correct, and the original jump happened with no adb input in the log (external
-   input, most likely a physical touch). Awaiting the owner's decision to close the issue.
+   input, most likely a physical touch). **Closed by the owner as not a game defect.**
 
 Done in round 4: player builds hide developer / QA entries (§7, verified with a real release
 export).
@@ -184,8 +184,8 @@ row 2 the two desktop save-problem dialogs, each labelled. D3 remains **pending*
   The Next press and the board drag that produced Level 2 therefore did not come over adb;
   adbd records every client's shell commands but not physical touches. Most likely explanation:
   a physical touch on the device. This is an inference from the log, not a recording.
-- **Conclusion:** no evidence of a navigation defect; no fix made. Owner decides whether to close
-  #23 as "not a game defect".
+- **Conclusion:** no evidence of a navigation defect; no fix made. **#23 closed by the owner as
+  not a game defect** (reopen if it is seen again with logging enabled).
 - Device after the run: progress values unchanged (unlock 53, all 53 stars; `progress.save`
   byte-identical; `progress_v2.save` `seq` 7 → 37 from the Level 1 replays); restored to the
   legacy-default build with `install -r`, `firstInstallTime` unchanged.
