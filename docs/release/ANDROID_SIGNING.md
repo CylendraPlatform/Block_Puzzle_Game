@@ -18,6 +18,16 @@ changes, when `export_presets.cfg` and `docs/release/RELEASES.md` disagree, when
 It writes `build/release/<name>.json` with the commit, version, engine flag, signing
 certificate SHA-256 and APK SHA-256 (no secrets).
 
+The export never runs on the working tree. `tools/release/stage_release_tree.sh` copies the
+committed files of `HEAD` (`git archive`) into a new temporary directory outside the repository;
+the script imports and exports that copy, then deletes it. The preset uses
+`export_filter="all_resources"`, so an in-place export packs everything under `res://`:
+a check on 2026-11-27 found a debug export of the working tree carried 658 extra entries from
+the gitignored `build/` folder (QA screenshots and a compiled scratch QA script) that the staged
+export did not. Untracked, ignored and uncommitted files, and the local
+`.godot/export_credentials.cfg`, cannot reach a release build. The keystore stays where the
+environment variable points, outside both directories.
+
 ## Creating the release key (owner, once)
 
 Run on a trusted machine; `keytool` asks for the passwords interactively, so they never appear

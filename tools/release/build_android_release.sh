@@ -33,10 +33,23 @@ commit=$(git rev-parse HEAD)
 [ -n "$name" ] || fail "version/name missing in export_presets.cfg"
 [ -n "$engine" ] || fail "gameplay/engine missing in project.godot"
 
-out=build/release
+out="$root/build/release"
 mkdir -p "$out"
 apk="$out/BlockPuzzle-$name-$code-$engine.apk"
-"$GODOT" --headless --path . --export-release "Android" "$apk" > "$out/export-$code.log" 2>&1 || fail "export failed; see $out/export-$code.log"
+log="$out/export-$code.log"
+
+# Export from a fresh copy of HEAD outside the repository. The preset uses
+# export_filter="all_resources", so exporting this working tree would also pack any untracked or
+# ignored file under res://; the staged copy holds committed files only. Credentials still come
+# only from the GODOT_ANDROID_KEYSTORE_RELEASE_* variables above.
+stage_parent=$(mktemp -d)
+trap 'rm -rf "$stage_parent"' EXIT
+stage="$stage_parent/project"
+staged_commit=$(tools/release/stage_release_tree.sh "$stage" "$commit")
+[ "$staged_commit" = "$commit" ] || fail "staged $staged_commit, expected $commit"
+[ ! -e "$stage/.godot" ] || fail "staged tree unexpectedly contains .godot"
+"$GODOT" --headless --path "$stage" --import > "$log" 2>&1 || fail "import of the staged tree failed; see $log"
+"$GODOT" --headless --path "$stage" --export-release "Android" "$apk" >> "$log" 2>&1 || fail "export failed; see $log"
 [ -f "$apk" ] || fail "export produced no APK"
 
 aapt2="$BUILD_TOOLS/aapt2"

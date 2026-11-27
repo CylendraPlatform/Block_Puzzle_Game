@@ -2,9 +2,11 @@
 
 ## Current state (2026-11-27)
 
-- Version settings live in `export_presets.cfg`, which is **gitignored** (`.gitignore`), so
-  they exist only on the build machine: `version/code=1`, `version/name="0.1.0"`,
+- Version settings live in `export_presets.cfg`, tracked since PR #24 (no secrets; CI checks
+  it against `RELEASES.md`): `version/code=1`, `version/name="0.1.0"`,
   `package/unique_name="com.blockpuzzle.game"`.
+- Whether any code was ever distributed through the Play Console is **not known from the
+  repository**; the owner confirms it (`M1_3_ACTIVATION_CHECKLIST.md` §1).
 - The local Android preset has **no release keystore configured**; every APK built so far is
   signed with the Godot editor's debug key (certificate SHA-256 `f3349434…a00fea87d`).
 - No build has been published to a store. CI does not build APKs.
@@ -18,11 +20,10 @@
    Installing an older APK is not a rollback path for players (plan §5.5).
 3. Activation and rollback builds must be signed with the **same release key**, or players
    cannot update between them.
-4. Because `export_presets.cfg` is not tracked, each release records its `version/code`,
-   `version/name`, commit and engine flag in the table below **in the same PR** that prepares
-   the release, and the built APK is checked before upload:
-   `"<build-tools>/aapt2" dump badging <apk> | grep -E "versionCode|versionName"` and
-   `apksigner verify --print-certs <apk>`.
+4. Each release adds its row to `RELEASES.md` **in the same PR** that changes
+   `export_presets.cfg` (CI requires the preset code to equal the last row, and every row to be
+   higher than the one before). `tools/release/build_android_release.sh` exports a
+   committed-files-only copy and checks the APK's `versionCode` and signing certificate.
 
 ## Planned codes
 
@@ -52,8 +53,8 @@ If the activation ships without needing a rollback, the next release simply take
 
 ## Before the activation release (prerequisites)
 
-- Create and back up a release keystore; configure it in the build machine's preset (never
-  commit it; `*.keystore` is gitignored).
-- Decide whether to track a sanitised `export_presets.cfg` (no passwords) so version codes are
-  reviewable in Git; until then, the table above is the record.
+- Create and back up a release keystore outside the repository; pass it only through the
+  `GODOT_ANDROID_KEYSTORE_RELEASE_*` variables (`ANDROID_SIGNING.md`; never commit it).
+- Owner confirms the highest previously distributed code.
 - Owner approval of the activation PR (`gameplay/engine = v2`), separate from this plan.
+  Full list: `M1_3_ACTIVATION_CHECKLIST.md`.
