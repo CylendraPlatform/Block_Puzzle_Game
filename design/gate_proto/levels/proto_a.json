@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "id": "proto-a",
+  "name": "First Door",
+  "board": {"cols": 5, "rows": 5, "walls": []},
+  "pieces": [
+    {"id": "red", "color": "red", "cells": [[0, 0], [0, 1]], "pos": [1, 0], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_right", "side": "right", "lo": 2, "hi": 3, "accept": ["red"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "par": 2,
+    "solution": [["red", "down", [1, 2]], ["red", "exit"]],
+    "prompt": "Line the block up with its door.",
+    "intent": "One two-cell red door on the right edge, rows 2-3. The tall red block starts in rows 0-1, so a slide right only stops at the frame; it must first drop to rows 2-3, then it leaves through the door."
+  }
+}
