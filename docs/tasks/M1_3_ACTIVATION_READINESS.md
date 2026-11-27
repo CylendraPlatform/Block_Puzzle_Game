@@ -80,8 +80,9 @@ After the round-3 device checks (§6):
 4. **versionCode and rollback plan** — **provisionally approved.** Open conditions:
    - highest previously distributed versionCode: the repository shows only code 1 on debug-
      signed dev / QA builds; the Play Console cannot be checked from here — **owner confirms**;
-   - reproducible release metadata: **implemented in draft PR #24** (tracked
-     `export_presets.cfg`, `docs/release/RELEASES.md` ledger, CI guard, release build script);
+   - reproducible release metadata: **merged in PR #24** (tracked `export_presets.cfg`,
+     `docs/release/RELEASES.md` ledger, CI guard, release build script); the release-hardening
+     PR adds strict row-by-row ledger ordering and a committed-files-only release export;
    - release keystore: **not created** (owner, per `docs/release/ANDROID_SIGNING.md` in #24).
 5. **Issue #23 investigation** — **done; no defect reproduced** (§7): 15 fully logged
    repetitions correct, and the original jump happened with no adb input in the log (external
@@ -95,6 +96,8 @@ Tracked separately, not blocking: issue #22 (editor contents lost when returning
 Optional: exercising the merge of *new* legacy progress on the device needs the legacy build to
 record an improvement (for example raising a 1-star level), which changes the player's saved
 stars; it is done only with the owner's approval.
+
+Step-by-step list for the remaining work: `docs/release/M1_3_ACTIVATION_CHECKLIST.md`.
 
 When 2–5 are done, the activation PR is small: set `gameplay/engine="v2"` in `project.godot`,
 update the test that asserts the shipped default, and re-run the full regression, CI and a

@@ -33,6 +33,12 @@ jobs:
       - name: Release metadata guard
         run: bash tools/release/check_release_metadata.sh
 
+      # Ledger ordering regression cases and the committed-files-only release staging.
+      - name: Release tooling tests
+        run: |
+          bash tools/release/test_check_release_metadata.sh
+          bash tools/release/test_stage_release_tree.sh
+
       - name: Install Godot ${{ env.GODOT_VERSION }} (checksum-verified)
         run: |
           zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
