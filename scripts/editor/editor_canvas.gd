@@ -74,6 +74,10 @@ func _draw_gate(g: Dictionary) -> void:
 func _gui_input(event: InputEvent) -> void:
 	var pressed := false
 	var pos := Vector2.ZERO
+	# On touch screens Godot also emulates a mouse click from each touch; the touch is handled
+	# below, so skip the emulated copy or every toggle tool would undo itself.
+	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		pressed = true
 		pos = event.position
