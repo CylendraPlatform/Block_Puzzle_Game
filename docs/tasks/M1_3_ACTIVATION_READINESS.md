@@ -3,14 +3,18 @@
 **Question:** is the project ready to flip `gameplay/engine` from `legacy` to `v2` so Play and
 Levels open Classic on the v2 `GameScreen` (plan §4.2, phase 1)?
 
-**Answer: not yet.** The code, saves and automated gates are ready, every device criterion is
-met (F5 closed by PR #21), and four items remain (§5): the owner's Pearl sign-off, review of
-the release note and of the versionCode / rollback plan (plus a release keystore), and the
-navigation investigation in issue #23.
+**Answer: not yet.** The code, saves and automated gates are ready and every device criterion
+is met (F5 closed by PR #21). Remaining blockers (§5, §7): issue #23 not yet concluded (the
+round-4 run was compromised by another client on the shared device), Pearl D3 sign-off pending,
+the owner's confirmation of the highest distributed versionCode, a release keystore, and review
+of the release-metadata PR #24.
 Nothing here activates v2: `gameplay/engine` stays `legacy` on `main`.
 
 **Update:** PR #21 (editor touch fix) merged as `cf123fb`; main CI run 45977194875 on `cf123fb`:
-`headless` success, `classic-compat` success.
+`headless` success, `classic-compat` success. Owner review of PR #20 at `1ce8b8d`: release note
+D1 content **approved**; versionCode 2 / 3 **provisionally approved** (subject to verifying the
+highest distributed code and reproducible release metadata); Pearl D3 **pending** visual review;
+issue #23 must be investigated before activation. Round-4 results: §7.
 
 **Baseline:** `main` at `f50eb8c` (M1.3-D merge). CI run 45961420196 on `f50eb8c`: `headless`
 success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` and PRs #16–#19.
@@ -69,17 +73,21 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 After the round-3 device checks (§6):
 
 1. ~~F5 — merge PR #21~~ **Done:** merged as `cf123fb`, main CI green; F5 closed.
-2. **Owner visual sign-off of the Pearl theme (D3)** — review pack prepared:
-   `docs/qa/pearl_signoff/` (8 screenshots + checklist). Awaiting the owner.
-3. **Release note** — drafted: `docs/release/M1_3_ACTIVATION_RELEASE_NOTE.md` (store text
-   483 characters, support wording, internal level list). Awaiting review.
-4. **versionCode and rollback plan** — drafted: `docs/release/ANDROID_VERSIONING_AND_ROLLBACK.md`
-   (activation code 2 / 0.2.0 with `v2`; rollback code 3 / 0.2.1 with `legacy`; same release
-   key). Prerequisite found: no release keystore is configured yet, and `export_presets.cfg`
-   (where the code lives) is gitignored. Awaiting review.
-5. **Navigation investigation before default activation** — issue #23: one unexplained jump
-   to Level 2 after a win card (§6). No root cause is claimed; the issue lists the
-   investigation steps (logged button presses, input during scene changes).
+2. **Owner visual sign-off of the Pearl theme (D3)** — **pending.** Review pack:
+   `docs/qa/pearl_signoff/00_contact_sheet.png` (one page: six M31 captures + two desktop
+   save-problem dialogs) and the individual files with a checklist.
+3. ~~Release note~~ — **content approved** (D1).
+4. **versionCode and rollback plan** — **provisionally approved.** Open conditions:
+   - highest previously distributed versionCode: the repository shows only code 1 on debug-
+     signed dev / QA builds; the Play Console cannot be checked from here — **owner confirms**;
+   - reproducible release metadata: **implemented in draft PR #24** (tracked
+     `export_presets.cfg`, `docs/release/RELEASES.md` ledger, CI guard, release build script);
+   - release keystore: **not created** (owner, per `docs/release/ANDROID_SIGNING.md` in #24).
+5. **Issue #23 investigation** — **not concluded** (§7): the round-4 repetition run was
+   compromised by another client taking over the device. Must be re-run.
+
+Done in round 4: player builds hide developer / QA entries (§7, verified with a real release
+export).
 
 Tracked separately, not blocking: issue #22 (editor contents lost when returning from Test).
 
@@ -107,3 +115,53 @@ next taps ended on Level 2 (the log shows commits on `legacy-2`), as if Next had
 of Menu. Level 2 was not completed, so nothing was saved. Replaying the same taps and timing
 twice, and dragging from the Next button, all behaved correctly (Menu → main menu, Play →
 Level 54). No cause found; tracked as issue #23, to be investigated before default activation.
+
+## 7. Round 4 (2026-11-27) — owner review follow-ups
+
+### D. Player builds hide developer / QA entries — verified
+- Code: `DevAccess.enabled()` is true only with the `editor` feature, `OS.is_debug_build()`, or a
+  `--dev` user argument. Editor, v2 Pilot, TD-3.6 QA, Advanced QA and the dev readouts are all
+  behind it.
+- **Real release export:** `--export-release` of `main` `cf123fb` for Windows (same
+  `OS.is_debug_build()` gate; scratch copy with a temporary probe autoload, never committed)
+  reported `is_debug_build=false editor_feature=false dev_enabled=false`; main menu buttons:
+  **Play, Levels, Settings**. An Android release export needs the release keystore.
+- CI test `test_m1_2_dev_solve_lifecycle` now also asserts the release-mode menu hides
+  **Editor** and keeps Play / Levels / Settings (draft PR #24).
+- Side effect: running the probe created an empty-progress `progress_v2.save` in this PC's
+  Godot dev data folder (`app_userdata/Block Puzzle Game`); no device involved.
+
+### B. Release signing and metadata — prepared in draft PR #24 (no secrets)
+- Godot 4.7.2 source (`platform/android/export/export_plugin.{h,cpp}`, tag `4.7.2-stable`):
+  keystore options are `PROPERTY_USAGE_SECRET` (saved in `.godot/export_credentials.cfg`) and
+  can come from `GODOT_ANDROID_KEYSTORE_RELEASE_{PATH,USER,PASSWORD}`.
+- `export_presets.cfg` tracked (checked: no keystore, password or machine path), version ledger,
+  CI guard (tested: secret line, preset/ledger mismatch and reused code all fail), release build
+  script that refuses unsafe states and records commit / version / cert / APK hashes.
+- **Signature mismatch:** a release-signed APK cannot update the debug-signed installs (incl. the
+  M31); never uninstall or clear data to work around it; release-candidate QA on a device or
+  profile without the debug install, or via Play internal testing. No release keystore was
+  created; the owner creates it (`docs/release/ANDROID_SIGNING.md`).
+
+### C. Pearl contact sheet — prepared
+`docs/qa/pearl_signoff/00_contact_sheet.png` (2328×1856): row 1 the six Galaxy M31 captures,
+row 2 the two desktop save-problem dialogs, each labelled. D3 remains **pending**.
+
+### A. Issue #23 — not concluded; run compromised
+- Method: QA-only build of `cf123fb` with temporary `[qa]` logging (touch / emulated-mouse
+  input with device id and visible layers, every `GameRoute.go` with its caller, Level Select
+  taps, `_load_index` with its caller, win card shown, Next / Menu actions), `gameplay/engine`
+  set to `v2` for the export only; both reverted immediately (patch kept outside the repo).
+  Installed with `adb install -r`, same certificate, `firstInstallTime` unchanged.
+- A sanity check before the run logged the expected path: Play → `selected=-1 unlocked=53` →
+  `load idx=53`.
+- A loop of 30 repetitions (Pause → Levels → Level 1 → win → wait 0.1–2.5 s → Menu → Play →
+  swipe → Undo) was started. **At 13:31:56 another adb client (not this session) started
+  `com.dilmart.spike.capacitor/.MainActivity` on the same device and attached a debugger;
+  the game was paused and the loop's remaining taps (≈ repetitions 16–30) went to that app.**
+  The loop was stopped and no further input was sent.
+- The heavy input logging also rotated the device log buffer, so no `[qa]` lines from the
+  repetitions that did run on the game were kept.
+- **Result: no evidence either way; no cause is claimed and no fix was made.** Re-run when the
+  device is not shared, with the log streamed to a file during the run (not read afterwards
+  from the ring buffer) and a foreground-app check before every repetition.
