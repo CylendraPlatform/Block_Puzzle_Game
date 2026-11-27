@@ -78,10 +78,42 @@ func _check_level(view: BoardViewV2, name: String, defn: Dictionary, spec: Dicti
 	_ok(absf(band - view._cell * BoardViewV2.FRAME_RATIO) < EPS, "%s frame band is FRAME_RATIO cells" % tag)
 	var cols := int(defn["board"]["cols"])
 	var rows := int(defn["board"]["rows"])
+	var lanes_by_side := {}
 	for gate in defn.get("gates", []):
+		var gid := str(gate.get("id", ""))
 		var slot := view.gate_slot(gate, cols, rows)
-		_ok(slot.size.x > 0.0 and slot.size.y > 0.0, "%s gate %s has a slot" % [tag, gate.get("id", "")])
-		_ok(frame.grow(-1.0).encloses(slot), "%s gate %s slot %s keeps an unbroken outer rim inside %s" % [tag, gate.get("id", ""), slot, frame])
+		_ok(slot.size.x > 0.0 and slot.size.y > 0.0, "%s gate %s has a slot" % [tag, gid])
+		_ok(frame.grow(-1.0).encloses(slot), "%s gate %s slot %s keeps an unbroken outer rim inside %s" % [tag, gid, slot, frame])
+		# Cell doors: the rail covers exactly lo..hi (never narrower than the rule) and there is
+		# one door per cell in that range, inside the rail, centred on its cell.
+		var lo := int(gate["lo"])
+		var hi := int(gate["hi"])
+		var side := str(gate["side"])
+		var vertical := side == "left" or side == "right"
+		var along_start := slot.position.y if vertical else slot.position.x
+		var along_len := slot.size.y if vertical else slot.size.x
+		var edge_start := board.position.y if vertical else board.position.x
+		_ok(absf(along_start - (edge_start + lo * view._cell)) < EPS and absf(along_len - (hi - lo + 1) * view._cell) < EPS, "%s gate %s rail spans exactly %d..%d" % [tag, gid, lo, hi])
+		var doors := view.gate_doors(gate, cols, rows)
+		_ok(doors.size() == hi - lo + 1, "%s gate %s has one door per cell (%d)" % [tag, gid, doors.size()])
+		for i in doors.size():
+			var door: Rect2 = doors[i]
+			var c := door.get_center()
+			var cell_mid := edge_start + (lo + i + 0.5) * view._cell
+			_ok(slot.grow(EPS).encloses(door), "%s gate %s door %d inside its rail" % [tag, gid, i])
+			_ok(absf((c.y if vertical else c.x) - cell_mid) < EPS, "%s gate %s door %d centred on cell %d" % [tag, gid, i, lo + i])
+		var lane := view.gate_lane(gate)
+		if not lanes_by_side.has(side):
+			lanes_by_side[side] = []
+		lanes_by_side[side].append(lane)
+	# Gates on one edge (all Classic shared edges overlap fully) get distinct lanes 0..n-1.
+	for side in lanes_by_side.keys():
+		var lanes: Array = lanes_by_side[side]
+		var seen := {}
+		for lane in lanes:
+			seen[(lane as Vector2i).x] = true
+			_ok((lane as Vector2i).y == lanes.size(), "%s %s edge: lane count %d matches %d gate(s)" % [tag, side, (lane as Vector2i).y, lanes.size()])
+		_ok(seen.size() == lanes.size(), "%s %s edge: every gate has its own lane" % [tag, side])
 	# Touch mapping: centres and both inner corners of every cell map back to that cell;
 	# points on the frame band map off the board.
 	for y in rows:

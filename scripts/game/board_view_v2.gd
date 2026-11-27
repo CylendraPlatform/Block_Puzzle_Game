@@ -26,6 +26,8 @@ const FRAME_GAP_Y := 12.0
 ## Part of the frame band, from the board edge outwards, that a gate slot occupies; the rest
 ## stays as an unbroken outer rim.
 const GATE_DEPTH := 0.8
+## Gap at each end of a cell door, in cells, so neighbouring doors read as separate openings.
+const DOOR_GAP := 0.1
 
 var definition: Dictionary = {}
 var state: PuzzleState
@@ -439,39 +441,109 @@ func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 	if locked:
 		color = color.darkened(0.45)
 		color.s *= 0.5
-	var slot := gate_slot(gate, cols, rows)
-	if slot.size == Vector2.ZERO:
+	var rail := gate_slot(gate, cols, rows)
+	if rail.size == Vector2.ZERO:
 		return
-	# The slot is a recess in the frame band, the same colour as the board bed, so the gate
-	# reads as an opening in an unbroken frame; the coloured lip sits inside it.
-	var lip := slot.grow(-maxf(1.5, _cell * FRAME_RATIO * 0.1))
-	_round(slot, TD35Theme.BASE, int(clampf(_cell * 0.08, 3.0, 8.0)))
-	_round(lip, color, int(clampf(_cell * 0.06, 2.0, 6.0)))
+	# Cell doors (owner-approved style B): a dark rail over exactly lo..hi, one coloured door
+	# per cell a piece can leave through, an outward arrow on each door. Gates sharing an edge
+	# split the depth into lanes so every accepted colour stays visible.
+	var lane := gate_lane(gate)
+	if lane.x == 0:
+		_round(rail, TD35Theme.SHADOW, int(clampf(_cell * 0.06, 2.0, 6.0)))
+	var side := str(gate.get("side", ""))
+	var radius := int(clampf(_cell * 0.06, 2.0, 6.0))
+	for door in gate_doors(gate, cols, rows):
+		_round(_lane_rect(side, door, lane.x, lane.y).grow(-1.0), color, radius)
+		if lane.x == lane.y - 1:
+			_door_arrow(door.get_center(), _outward(side), minf(door.size.x, door.size.y) * 0.7)
 	if locked:
-		_glyph_lock(lip.get_center())
+		_glyph_lock(rail.get_center())
 	var remaining := int(gstate.get("counter_remaining", -1))
 	if remaining > 0:
-		_badge(lip.get_center(), str(remaining))
+		_badge(rail.get_center(), str(remaining))
 
-## A gate's slot in local coordinates: along its edge from `lo` to `hi` (inset by a small
-## pad), and from the board edge outwards over GATE_DEPTH of the frame band. It overlaps the
-## board edge by one pixel so no seam shows. Empty for an unknown side.
+## A gate's rail in local coordinates: along its edge over exactly the rule's exit range
+## lo..hi (never narrower or wider), and from the board edge outwards over GATE_DEPTH of the
+## frame band. Empty for an unknown side.
 func gate_slot(gate: Dictionary, cols: int, rows: int) -> Rect2:
 	var lo := int(gate.get("lo", 0))
 	var hi := int(gate.get("hi", lo))
 	var along := float(hi - lo + 1) * _cell
-	var pad := clampf(_cell * 0.08, 2.0, 6.0)
 	var depth := _cell * FRAME_RATIO * GATE_DEPTH
 	match str(gate.get("side", "")):
 		"left":
-			return Rect2(_origin.x - depth, _origin.y + lo * _cell + pad, depth + 1.0, along - pad * 2.0)
+			return Rect2(_origin.x - depth, _origin.y + lo * _cell, depth, along)
 		"right":
-			return Rect2(_origin.x + cols * _cell - 1.0, _origin.y + lo * _cell + pad, depth + 1.0, along - pad * 2.0)
+			return Rect2(_origin.x + cols * _cell, _origin.y + lo * _cell, depth, along)
 		"top":
-			return Rect2(_origin.x + lo * _cell + pad, _origin.y - depth, along - pad * 2.0, depth + 1.0)
+			return Rect2(_origin.x + lo * _cell, _origin.y - depth, along, depth)
 		"bottom":
-			return Rect2(_origin.x + lo * _cell + pad, _origin.y + rows * _cell - 1.0, along - pad * 2.0, depth + 1.0)
+			return Rect2(_origin.x + lo * _cell, _origin.y + rows * _cell, along, depth)
 	return Rect2()
+
+## One door per cell in lo..hi, inside the rail, inset along the edge by DOOR_GAP of a cell at
+## each end so neighbouring doors read as separate openings.
+func gate_doors(gate: Dictionary, cols: int, rows: int) -> Array[Rect2]:
+	var rail := gate_slot(gate, cols, rows)
+	var doors: Array[Rect2] = []
+	if rail.size == Vector2.ZERO:
+		return doors
+	var side := str(gate.get("side", ""))
+	var vertical := side == "left" or side == "right"
+	var gap := _cell * DOOR_GAP
+	for i in int(gate.get("hi", gate.get("lo", 0))) - int(gate.get("lo", 0)) + 1:
+		if vertical:
+			doors.append(Rect2(rail.position.x, rail.position.y + i * _cell + gap, rail.size.x, _cell - gap * 2.0))
+		else:
+			doors.append(Rect2(rail.position.x + i * _cell + gap, rail.position.y, _cell - gap * 2.0, rail.size.y))
+	return doors
+
+## (lane, lanes) for a gate: its index among the gates on the same side whose ranges overlap
+## it (definition order), and how many there are. (0, 1) for a gate alone on its stretch.
+func gate_lane(gate: Dictionary) -> Vector2i:
+	var side := str(gate.get("side", ""))
+	var lo := int(gate.get("lo", 0))
+	var hi := int(gate.get("hi", lo))
+	var index := 0
+	var count := 0
+	for other in definition.get("gates", []):
+		if typeof(other) != TYPE_DICTIONARY or str(other.get("side", "")) != side:
+			continue
+		if int(other.get("lo", 0)) > hi or lo > int(other.get("hi", other.get("lo", 0))):
+			continue
+		if other == gate:
+			index = count
+		count += 1
+	return Vector2i(index, maxi(1, count))
+
+## The k-th of n depth lanes of a door (lane 0 next to the board).
+func _lane_rect(side: String, r: Rect2, k: int, n: int) -> Rect2:
+	if n <= 1:
+		return r
+	match side:
+		"left":
+			var w := r.size.x / n
+			return Rect2(r.end.x - w * (k + 1), r.position.y, w, r.size.y)
+		"right":
+			var w2 := r.size.x / n
+			return Rect2(r.position.x + w2 * k, r.position.y, w2, r.size.y)
+		"top":
+			var h := r.size.y / n
+			return Rect2(r.position.x, r.end.y - h * (k + 1), r.size.x, h)
+	var h2 := r.size.y / n
+	return Rect2(r.position.x, r.position.y + h2 * k, r.size.x, h2)
+
+func _outward(side: String) -> Vector2:
+	match side:
+		"left": return Vector2.LEFT
+		"right": return Vector2.RIGHT
+		"top": return Vector2.UP
+	return Vector2.DOWN
+
+## A small white arrow pointing out of the board, so direction does not rely on colour.
+func _door_arrow(center: Vector2, out: Vector2, s: float) -> void:
+	var across := Vector2(-out.y, out.x)
+	draw_colored_polygon(PackedVector2Array([center + out * s * 0.55, center - out * s * 0.35 + across * s * 0.5, center - out * s * 0.35 - across * s * 0.5]), Color(1, 1, 1, 0.9))
 
 ## A small padlock glyph (shackle arc + body) so a locked gate reads without colour.
 func _glyph_lock(center: Vector2) -> void:

@@ -1,8 +1,9 @@
 # Gate presentation — investigation and alternatives (owner review)
 
-**Status: proposal only. Nothing here is implemented in the game.** PR #26 stays a draft and
-Pearl D3 stays pending until the owner picks a direction. No level data, rule, solver, scoring
-or save change is proposed.
+**Status: the owner chose B (cell doors); implemented in PR #26 (renderer only) with the
+mocked defaults: door depth 80 % of the frame band, an arrow on every door, a 10 % cell gap at
+each end of a door. Pearl D3 stays pending until the owner approves the result.** No level
+data, rule, solver, scoring or save change.
 
 Sheets: `gate_alternatives.png` (4 styles × 5 boards) and `gate_alternatives_zoom.png` (edge
 detail at 1:1). Both are desktop renders at the Galaxy M31 canvas width from
