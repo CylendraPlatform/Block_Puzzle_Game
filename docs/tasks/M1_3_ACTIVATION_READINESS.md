@@ -3,11 +3,14 @@
 **Question:** is the project ready to flip `gameplay/engine` from `legacy` to `v2` so Play and
 Levels open Classic on the v2 `GameScreen` (plan §4.2, phase 1)?
 
-**Answer: not yet.** The code, saves and automated gates are ready, and after the round-3
-device checks (§6) three items remain: merging the editor touch fix (PR #21, with which
-Editor Test passed on the device — F5), the owner's Pearl sign-off, and the release note /
-version-code plan.
+**Answer: not yet.** The code, saves and automated gates are ready, every device criterion is
+met (F5 closed by PR #21), and four items remain (§5): the owner's Pearl sign-off, review of
+the release note and of the versionCode / rollback plan (plus a release keystore), and the
+navigation investigation in issue #23.
 Nothing here activates v2: `gameplay/engine` stays `legacy` on `main`.
+
+**Update:** PR #21 (editor touch fix) merged as `cf123fb`; main CI run 45977194875 on `cf123fb`:
+`headless` success, `classic-compat` success.
 
 **Baseline:** `main` at `f50eb8c` (M1.3-D merge). CI run 45961420196 on `f50eb8c`: `headless`
 success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` and PRs #16–#19.
@@ -32,7 +35,7 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 |Existing progress visible; Play resumes; Levels gating and stars match; Next / Undo / Restart / Pause work|Met|`M1_3_D_DEVICE_QA.md`, `v2/01–19`|
 |Undo during a level does not change stored stars|Met|049: Undo + win shows 2 stars, stored stays 3|
 |Complete at least 3 Classic levels including one of 021/080/090|**Met** (round 3)|021 (par, 3 stars), 049 (2-star replay, stored 3) and 001 (par, 3 stars, `shots/03_level1_win`). Stored stars and unlock unchanged.|
-|Editor Test plays a custom level and writes no progress (F5)|**Met on the device with the fix in PR #21 (not yet merged)**|Round 3 found the editor unusable on a touchscreen: one tap reached `EditorCanvas._gui_input` twice (`InputEventScreenTouch` plus the emulated mouse click) and the toggle tools undid themselves (`m13r_device/shots/12a`, `12b`; pre-existing since `1473bc4`). PR #21 skips the emulated copy (new `test_editor_input`, red → green). With that build on the M31: blocks and gates placed, Validate "SOLVABLE (min moves: 2)", Test opened "Custom Level" on the v2 GameScreen, won in 2 moves, Back to Editor returned, saves byte-identical, no files written (`build/qa/f5_device/`). F5 closes when PR #21 merges.|
+|Editor Test plays a custom level and writes no progress (F5)|**Met — F5 CLOSED** (PR #21 merged as `cf123fb`, main CI green)|Round 3 found the editor unusable on a touchscreen: one tap reached `EditorCanvas._gui_input` twice (`InputEventScreenTouch` plus the emulated mouse click) and the toggle tools undid themselves (`m13r_device/shots/12a`, `12b`; pre-existing since `1473bc4`). PR #21 skips the emulated copy (new `test_editor_input`, red → green). With that build on the M31: blocks and gates placed, Validate "SOLVABLE (min moves: 2)", Test opened "Custom Level" on the v2 GameScreen, won in 2 moves, Back to Editor returned, saves byte-identical, no files written (`build/qa/f5_device/`). Closed after PR #21 merged and main CI run 45977194875 passed.|
 |**Visual sign-off of the Pearl theme on the device (D3)**|**Open — owner decision**|Review pack with checklist: `docs/qa/pearl_signoff/` (device: menu, Level Select, game, pause, win card, Editor Test; desktop: save-problem dialogs).|
 |Rollback rehearsal: legacy build `install -r` → confirm progress → play one Classic level → reinstall v2 → confirm the new progress is merged|**Met for the round trip; merge of new progress not exercised**|Round 3: legacy build over v2, level 001 won on the legacy route; the legacy `Catalog` wrote nothing (no improvement); v2 reinstalled, menu Level 54, Level Select stars equal, both save files byte-identical before and after. A merge of *new* legacy progress only happens when the legacy build records an improvement, which would change the player's stars or unlock on this device; that case is covered by `test_progress_store` with the real legacy `Catalog`, not on the device.|
 |No crash / ANR / Godot script error in logcat|Met|v2, rollback, fix-build and round-3 sessions: 0 error lines|
@@ -65,8 +68,7 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 
 After the round-3 device checks (§6):
 
-1. **F5 — merge PR #21** (editor touch fix). Editor Test already passed on the M31 with it.
-   F5 is marked closed only after #21 is merged and `main` CI is green.
+1. ~~F5 — merge PR #21~~ **Done:** merged as `cf123fb`, main CI green; F5 closed.
 2. **Owner visual sign-off of the Pearl theme (D3)** — review pack prepared:
    `docs/qa/pearl_signoff/` (8 screenshots + checklist). Awaiting the owner.
 3. **Release note** — drafted: `docs/release/M1_3_ACTIVATION_RELEASE_NOTE.md` (store text
@@ -85,7 +87,7 @@ Optional: exercising the merge of *new* legacy progress on the device needs the 
 record an improvement (for example raising a 1-star level), which changes the player's saved
 stars; it is done only with the owner's approval.
 
-When 1–3 are done, the activation PR is small: set `gameplay/engine="v2"` in `project.godot`,
+When 2–5 are done, the activation PR is small: set `gameplay/engine="v2"` in `project.godot`,
 update the test that asserts the shipped default, and re-run the full regression, CI and a
 device smoke test. It needs its own approval and is not merged automatically. Chapter 1
 (M1.3-E) is out of scope here.
