@@ -1,8 +1,19 @@
 # Gate presentation — investigation and alternatives (owner review)
 
-**Status: proposal only. Nothing here is implemented in the game.** PR #26 stays a draft and
-Pearl D3 stays pending until the owner picks a direction. No level data, rule, solver, scoring
-or save change is proposed.
+**Status: the owner chose B (cell doors); implemented in PR #27 (renderer only) with the
+mocked defaults: door depth 80 % of the frame band, an arrow on every door, a 10 % cell gap at
+each end of a door. Pearl D3 stays pending until the owner approves the result.** No level
+data, rule, solver, scoring or save change.
+
+**Shared edges, revised after the PR #27 review.** The first build split each door into depth
+lanes (one thin strip per colour, side by side across the frame band) and drew a single arrow
+at the door centre, across both lanes. At 360x800 a depth lane is about 4 canvas units wide,
+too thin for an arrow (1 to 2 px). Each door is now split along the edge instead: on Level 6's
+right edge every cell has a red half and a blue half at full door depth, each with its own
+outward arrow inside its own half, the same size as a single-gate arrow. An arrow is left out
+where it would sit under a lock glyph or counter badge. `test_board_geometry` checks that
+every arrow is inside its own lane, points out of the board, clears the marker and is at least
+90 % of a single-gate arrow. Close-up: `l06_shared_edge_closeup.png` (desktop renders).
 
 Sheets: `gate_alternatives.png` (4 styles × 5 boards) and `gate_alternatives_zoom.png` (edge
 detail at 1:1). Both are desktop renders at the Galaxy M31 canvas width from

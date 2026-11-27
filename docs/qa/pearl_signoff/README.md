@@ -1,9 +1,17 @@
-# Pearl theme — owner visual sign-off pack (decision D3), round 2
+# Pearl theme — owner visual sign-off pack (decision D3), round 3
 
 **Status: pending owner review.** Round 1 (`before/00_contact_sheet_round1.png`) was returned
 with changes requested for the board's left/right edges, the strip under the board and the
-board behind the Pause / Win dialogs. Round 2 corrects the board frame (presentation only).
-`.gdignore` keeps these files out of the Godot project import.
+board behind the Pause / Win dialogs. Round 2 corrected the board frame. The owner then asked
+for gates to read as exit openings rather than edge strips and chose style **B, cell doors**
+(`gates/GATE_DESIGN.md`). Round 3 (this pack) shows the frame fix plus cell doors. Presentation
+only. `.gdignore` keeps these files out of the Godot project import.
+
+**Gates (round 3).** Every Classic gate spans its whole edge in the level data (313 of 313),
+so a gate is drawn as one door per cell over exactly the rule's exit range `lo..hi`, each with
+an outward arrow, on a dark rail. Where two colours share an edge (levels 6, 7, 90, 91, 94, 95,
+97, 99) each door is split along the edge into one half per colour, each with its own arrow
+(`gates/l06_shared_edge_closeup.png`); before this, only the last colour was visible.
 
 **Start here: `00_contact_sheet.png`**, then `11_before_after.png` and `12_responsive.png`.
 
@@ -34,8 +42,9 @@ That is unchanged.
 
 ## What changed
 
-- Gates are a recessed slot inside the frame band (board-bed colour) with the coloured bar inside
-  it. The outer 20 % of the frame band stays an unbroken rim on every side.
+- Gates sit inside the frame band as cell doors on a dark rail over exactly `lo..hi` (round 3;
+  round 2 used one coloured bar). The outer 20 % of the frame band stays an unbroken rim on
+  every side.
 - The board and its frame are fitted together: the frame spans the board area's full width (the
   same edges as the Pause / Undo buttons) unless the height is the limit, and is centred with
   equal margins above and below.
@@ -61,6 +70,8 @@ That is unchanged.
 |`11_before_after.png`|Round-1 device captures vs round-2 renders; desktop 360×800 before / after|composed|
 |`12_responsive.png`|360×800, 393×852, 411×891, M31 canvas × (Level 54, Level 35, Pause, Win)|composed from `responsive/`|
 |`before/`|Round-1 files replaced by this round|device captures and desktop renders|
+|`gates/l06_shared_edge_closeup.png`|Level 6 shared red / blue edge, 360x800 and M31, with zoom|desktop renders|
+|`gates/l06_game_360x800.png`, `gates/l06_game_m31.png`|Level 6 game screen|desktop renders|
 
 Notes
 - **03–06 and 09–10 are desktop renders, not device captures.** The shared Galaxy M31 was not

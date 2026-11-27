@@ -19,6 +19,7 @@ const SCENES := [
 	["win_l01", 0, "win"],
 	["game_l35_four_sides", 34, ""],
 	["game_l12_tall", 11, ""],
+	["game_l06_shared_edge", 5, ""],
 	["editor_test", -1, ""],
 ]
 const PROGRESS_DIR := "user://pearl_qa_progress/"
