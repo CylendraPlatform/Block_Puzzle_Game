@@ -32,6 +32,8 @@ window/stretch/aspect="expand"
 [gameplay]
 
 engine="legacy"
+exit_past=0.34
+exit_past_edge=0.12
 
 [gui]
 

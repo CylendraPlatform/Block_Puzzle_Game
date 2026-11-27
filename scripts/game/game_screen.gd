@@ -13,14 +13,21 @@ var _definition: Dictionary = {}
 var _session: PuzzleSessionV2
 var _score := ClassicScore.new()
 var _undos := 0
+## The completion of this attempt was taken (stars fixed, analytics sent). Saving is tracked
+## separately in _save_status, so a failed write is never shown as saved.
 var _recorded := false
 var _earned := 0
+## "" (nothing to save) | saved | partial (one of the two save files written; the other is
+## retried) | failed (neither written: not durable) | read_only (newer save found).
+var _save_status := ""
 var _board: BoardViewV2
 var _title: Label
 var _moves: Label
 var _win_layer: Control
 var _win_name: Label
 var _win_stars: Label
+var _save_note: Label
+var _retry: Button
 var _next: Button
 var _pause_layer: Control
 
@@ -98,6 +105,12 @@ func _build() -> void:
 	_win_stars = UIKit.wrapping_label("", 32, TD35Theme.NAVY)
 	wv.add_child(_win_stars)
 	wv.move_child(_win_stars, 2)
+	_save_note = UIKit.wrapping_label("", 15, TD35Theme.NAVY)
+	_save_note.visible = false
+	wv.add_child(_save_note)
+	wv.move_child(_save_note, 3)
+	_retry = _modal_button(wv, "Retry Save", _on_retry_save, false)
+	_retry.visible = false
 	_next = _modal_button(wv, "Next", _on_next, true)
 	_modal_button(wv, "Menu", _on_menu, false)
 	var paused := _modal(safe, "Paused")
@@ -166,6 +179,8 @@ func _start(definition: Dictionary) -> void:
 	_score.on_restart()
 	_undos = 0
 	_recorded = false
+	_save_status = ""
+	_show_save_status()
 	_board.reconcile()
 	_board.set_locked(false)
 	_board.show_state(_definition, _session.state)
@@ -206,17 +221,61 @@ func _on_commit(action: PuzzleAction) -> void:
 ## Saves the result as soon as the winning move is accepted, so leaving during the final
 ## animation cannot lose it. Custom (editor) levels are never recorded (par 0 = 3 stars,
 ## as on the legacy route).
+## The completion (stars, analytics) is taken once per attempt; saving may be retried.
 func _record_win() -> void:
 	if _recorded:
 		return
 	_recorded = true
 	_earned = _score.stars(int(_entry.get("par", 0)))
 	if not _custom:
-		var result := _store().record_completion(CampaignCatalog.CLASSIC, str(_entry["id"]), _index, _earned)
-		if int(result.get("v2", OK)) != OK:
-			push_warning("progress save failed: %s" % str(result))
+		_persist_win()
 	if Analytics:
 		Analytics.log_event("level_complete", {"level": _level_number(), "moves": _score.moves, "stars": _earned, "undos": _undos})
+
+## Writes this attempt's completion. Idempotent: the store keeps the best stars and the highest
+## unlock, so retrying the same completion never adds stars. progress_v2.save and the legacy
+## progress.save are independent copies (the next launch merges either into the other), so one
+## written copy is durable; neither written is not.
+func _persist_win() -> void:
+	var store := _store()
+	var result := store.record_completion(CampaignCatalog.CLASSIC, str(_entry["id"]), _index, _earned)
+	var v2_ok := int(result.get("v2", FAILED)) == OK
+	var v1 := int(result.get("v1", -1))
+	var v1_ok := v1 == OK
+	if store.read_only:
+		_save_status = "read_only"
+	elif v2_ok and (v1_ok or v1 == -1):
+		_save_status = "saved"
+	elif v2_ok or v1_ok:
+		_save_status = "partial"
+	else:
+		_save_status = "failed"
+	if _save_status != "saved":
+		push_warning("progress save %s: %s" % [_save_status, str(result)])
+	_show_save_status()
+
+func _save_pending() -> bool:
+	return _recorded and not _custom and (_save_status == "failed" or _save_status == "partial")
+
+func _show_save_status() -> void:
+	var notes := {
+		"partial": "Progress saved. A backup copy could not be written and will be retried.",
+		"failed": "Progress could not be saved. Tap Retry Save before leaving.",
+		"read_only": "Progress not saved: this device has a save from a newer version.",
+	}
+	_save_note.text = str(notes.get(_save_status, ""))
+	_save_note.visible = notes.has(_save_status)
+	_retry.visible = _save_pending()
+
+func _on_retry_save() -> void:
+	if _save_pending():
+		_persist_win()
+
+## Leaving a won attempt (Next, Restart, Menu, Levels) retries a pending save once. The
+## completion stays in the store's memory either way and is written again by the next save.
+func _retry_pending_save() -> void:
+	if _save_pending():
+		_persist_win()
 
 func _process(_delta: float) -> void:
 	if _session == null or not _session.input_locked or _board.transition_active():
@@ -231,8 +290,11 @@ func _process(_delta: float) -> void:
 		if Audio:
 			Audio.sfx("win")
 
+## A win is final for the attempt, as on the legacy route (its win card blocks Undo): Undo is
+## ignored from the winning move on, including during the final animation, so the recorded
+## completion, the shown stars and the board never disagree. Restart or Next start a new attempt.
 func _on_undo() -> void:
-	if _session == null or _pause_layer.visible:
+	if _session == null or _pause_layer.visible or _session.is_won():
 		return
 	# Undo interrupts a playing transition: settle it, then restore the previous snapshot.
 	_board.reconcile()
@@ -251,6 +313,7 @@ func _on_undo() -> void:
 func _on_restart() -> void:
 	if _session == null:
 		return
+	_retry_pending_save()
 	if Analytics:
 		Analytics.log_event("level_restart", {"level": _level_number()})
 	if _custom:
@@ -272,6 +335,7 @@ func _on_next() -> void:
 		Settings.custom_level = null
 		GameRoute.go(get_tree(), GameRoute.EDITOR_SCENE)
 		return
+	_retry_pending_save()
 	if _index + 1 < _entries.size():
 		# Interstitial opportunity between levels (no-op unless a provider is set).
 		if Ads and (_index + 1) % 3 == 0:
@@ -289,6 +353,7 @@ func _on_levels() -> void:
 
 func _leave(path: String) -> void:
 	_board.reconcile()
+	_retry_pending_save()
 	if Settings:
 		Settings.custom_level = null
 	GameRoute.go(get_tree(), path)

@@ -31,8 +31,9 @@ var pending_v1 := false
 ## open() rewrote progress.save because it was missing, corrupt or behind Classic.
 var v1_resynced := false
 var warnings: PackedStringArray = []
-## Test seam, never set in production: "<file>:<step>" stops _atomic_write at that step as if
-## the process died there (steps: after_tmp, after_backup), e.g. "progress.save:after_backup".
+## Test seam, never set in production: comma-separated "<file>:<step>" entries stop
+## _atomic_write at that step (steps: open = the write fails before touching disk; after_tmp,
+## after_backup = the process died there), e.g. "progress_v2.save:open,progress.save:open".
 var _crash_at := ""
 
 ## Loads (with recovery, migration and the v1 merge) from `base_dir`.
@@ -379,6 +380,8 @@ func _atomic_write(name: String, text: String, is_valid: Callable) -> Error:
 	var target := _path(name)
 	var tmp := target + ".tmp"
 	var bak := target + ".bak"
+	if _fault(name, "open"):
+		return ERR_CANT_OPEN
 	var file := FileAccess.open(tmp, FileAccess.WRITE)
 	if file == null:
 		var open_err := FileAccess.get_open_error()
@@ -391,17 +394,20 @@ func _atomic_write(name: String, text: String, is_valid: Callable) -> Error:
 		return write_err
 	if FileAccess.get_file_as_string(tmp) != text:
 		return ERR_FILE_CORRUPT
-	if _crash_at == name + ":after_tmp":
+	if _fault(name, "after_tmp"):
 		return ERR_UNAVAILABLE
 	if FileAccess.file_exists(target) and bool(is_valid.call(FileAccess.get_file_as_string(target))):
 		var copy_err := DirAccess.copy_absolute(target, bak)
 		if copy_err != OK:
 			return copy_err
-	if _crash_at == name + ":after_backup":
+	if _fault(name, "after_backup"):
 		return ERR_UNAVAILABLE
 	return DirAccess.rename_absolute(tmp, target)
 
 # --- helpers -------------------------------------------------------------------------
+
+func _fault(name: String, step: String) -> bool:
+	return _crash_at != "" and _crash_at.split(",").has(name + ":" + step)
 
 func _path(name: String) -> String:
 	return dir + name

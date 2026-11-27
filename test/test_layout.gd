@@ -14,6 +14,7 @@ const SCENES := [
 	["game_v2", "res://scenes/GameScreen.tscn", ""],
 	["game_v2_pause", "res://scenes/GameScreen.tscn", "pause"],
 	["game_v2_win", "res://scenes/GameScreen.tscn", "win"],
+	["game_v2_win_unsaved", "res://scenes/GameScreen.tscn", "win_unsaved"],
 ]
 ## GameScreen reads progress through the Progress autoload; point it at a throwaway folder.
 const PROGRESS_DIR := "user://layout_qa_progress/"
@@ -65,7 +66,11 @@ func _initialize() -> void:
 				await process_frame
 			if spec[2] == "pause":
 				node._set_pause(true)
-			elif spec[2] == "win":
+			elif spec[2].begins_with("win"):
+				if spec[2] == "win_unsaved":
+					node._recorded = true
+					node._save_status = "failed"
+					node._show_save_status()
 				node._win_name.text = "Level 1 — Layout"
 				node._win_stars.text = "2 / 3 Stars"
 				if node.has_method("_set_win"):
