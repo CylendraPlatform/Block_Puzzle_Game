@@ -90,15 +90,43 @@ desktop layout renders `build/qa/layout/*_game_v2_win_unsaved.png` and
 |`failed` (neither file written; not durable)|"Progress could not be saved. The next level stays locked until this win is saved. Tap Retry Save." + **Retry Save**|disabled|"Progress Not Saved" prompt: "This win could not be saved. If you leave now it will be lost when the game closes, unless a later save succeeds." → Retry Save / Leave Anyway / Stay|
 |`read_only` (save from a newer version found)|"Progress is not being saved: this device has a save from a newer version of the game."|enabled (nothing can be saved on this device)|leave normally|
 
-## Findings (no fixes made; for review)
+## Findings
 
-|#|Finding|Severity|Note|
+|#|Finding|Severity|Status|
 |---|---|---|---|
-|F1|HUD Pause / Undo buttons are ~102×72 px ≈ 39×27 dp; modal and menu buttons are 84 px ≈ 32 dp tall — below the 48 dp touch-target guideline|Medium|All taps registered in testing; menu buttons are pre-existing (legacy menu)|
-|F2|Level Select still uses the old dark theme and ASCII `***` stars, not Pearl|Medium|Shared by both routes; restyle would be visual-only|
-|F3|Pause / win / prompt dim backdrop covers only the safe area; the status-bar strip and side margins stay light|Low|Cosmetic|
-|F4|On v2 the board sits at the top with a large empty area; "Moves" is at the very bottom, far from the board|Low|Layout polish|
-|F5|Editor Test on v2 was not exercised on the device (headless tests only)|Info|—|
+|F1|HUD Pause / Undo buttons were ~102×72 px ≈ 39×27 dp; modal and menu buttons 84 px ≈ 32 dp tall — below the 48 dp touch-target guideline|Medium|**Fixed** (below)|
+|F2|Level Select used the old dark theme and ASCII `***` stars, not Pearl|Medium|**Fixed**|
+|F3|Pause / win / prompt dim backdrop covered only the safe area|Low|**Fixed**|
+|F4|On v2 the board sat at the top with a large empty area; "Moves" was at the very bottom|Low|**Fixed**|
+|F5|Editor Test on v2 was not exercised on the device (headless tests only)|Info|Open|
+
+## Fixes for F1–F4 (round 2, same day)
+
+|Fix|Change|
+|---|---|
+|F1|`UIKit.touch_size(floor)` converts 48 dp into canvas units from the screen DPI (720-unit canvas; 84 units on the M31) and never goes below the old design size. Used by `UIKit.button`, `UIKit.apply_compact`, `TD35Theme.style_button` / `style_compact`, Level Select cells and Settings rows. Desktop and headless runs report a low DPI and keep the old sizes, so desktop layouts are unchanged.|
+|F2|Level Select uses the Pearl background, navy title, Pearl Back button, navy cells for completed levels with drawn stars (`StarRow`, no font glyphs), green for the resume level, muted cells for locked levels; the grid leaves room for the scrollbar.|
+|F3|`UIKit.modal` stretches the dim past the safe-area margins to the viewport edges (negative offsets; still drawn under the card).|
+|F4|`BoardViewV2.center_vertically` (off by default; GameScreen turns it on) centres the board; "Moves" moved into the HUD under the level title. Touch mapping uses the same origin.|
+
+Shared helpers mean the legacy route also gets the 48 dp buttons and the full-screen dim; its
+screens are otherwise unchanged.
+
+### Device recheck (v2 and legacy builds of the fix, `install -r`)
+
+Evidence in `build/qa/m13d_device/fix/`.
+
+|Check|Result|Evidence|
+|---|---|---|
+|Menu buttons ≈ 125 px tall (48 dp at 420 dpi)|PASS|`30_menu`|
+|Level Select in Pearl; stars drawn and equal to the save (e.g. 5 = 2, 6 = 1, 49 = 3); 54 green; 55+ muted|PASS|`31_levels`|
+|v2 HUD Pause / Undo 126 × 126 px (48 dp); Moves under the title; board centred|PASS|`32_game`|
+|Pause dim covers the whole screen; card bright|PASS|`33_pause`|
+|Move and Undo on the centred board map to the right cells|PASS — Moves 1, then restored|`34_*`, `35_undo`|
+|Legacy route on the fix build: 48 dp buttons, full-screen dim, Level 54 resume|PASS|`40_legacy_menu`, `41_legacy_game`, `42_legacy_pause`|
+|Saves unchanged by the recheck (md5 equal to the post-QA files); logcat has no errors|PASS|`logcat_fix_v2.txt`, `logcat_fix_legacy.txt`|
+
+The device was left on the legacy-default fix build.
 
 ## Not done
 

@@ -23,6 +23,9 @@ const EXIT_PAST_EDGE_SETTING := "gameplay/exit_past_edge"
 var definition: Dictionary = {}
 var state: PuzzleState
 var input_locked := false
+## Centre the board vertically in this view (GameScreen). Off keeps the top-aligned layout the
+## pilot / QA screens use. Presentation only: touch mapping follows the same _origin.
+var center_vertically := false
 
 var _cell := 48.0
 var _origin := Vector2.ZERO
@@ -300,7 +303,8 @@ func _layout() -> void:
 	_cell = minf(avail.x / float(cols), avail.y / float(rows))
 	var board_size := Vector2(_cell * cols, _cell * rows)
 	var spare_y := maxf(0.0, size.y - board_size.y)
-	_origin = Vector2((size.x - board_size.x) * 0.5, minf(28.0, spare_y * 0.16))
+	var top := spare_y * 0.5 if center_vertically else minf(28.0, spare_y * 0.16)
+	_origin = Vector2((size.x - board_size.x) * 0.5, top)
 
 func _px(cell: Vector2i) -> Vector2:
 	return _origin + Vector2(cell) * _cell

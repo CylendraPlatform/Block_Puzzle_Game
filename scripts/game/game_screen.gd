@@ -84,11 +84,23 @@ func _build() -> void:
 	var undo := UIKit.button("Undo", _on_undo)
 	TD35Theme.style_compact(undo)
 	undo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Title with the move count under it, between Pause and Undo.
+	var heading := VBoxContainer.new()
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.alignment = BoxContainer.ALIGNMENT_CENTER
+	heading.add_theme_constant_override("separation", 2)
+	heading.add_child(_title)
+	_moves = Label.new()
+	_moves.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_moves.add_theme_font_size_override("font_size", 15)
+	_moves.add_theme_color_override("font_color", TD35Theme.FRAME)
+	heading.add_child(_moves)
 	bar.add_child(pause)
-	bar.add_child(_title)
+	bar.add_child(heading)
 	bar.add_child(undo)
 	column.add_child(bar)
 	_board = BoardViewV2.new()
+	_board.center_vertically = true
 	_board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_board.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_board.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -98,11 +110,6 @@ func _build() -> void:
 			Audio.sfx("bump")
 			Audio.haptic(12))
 	column.add_child(_board)
-	_moves = Label.new()
-	_moves.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_moves.add_theme_font_size_override("font_size", 15)
-	_moves.add_theme_color_override("font_color", TD35Theme.NAVY)
-	column.add_child(_moves)
 	var win := _modal(safe, "Level Complete!")
 	_win_layer = win["layer"]
 	var wv: VBoxContainer = win["box"]
