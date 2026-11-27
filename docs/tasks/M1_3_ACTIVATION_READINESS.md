@@ -4,8 +4,9 @@
 Levels open Classic on the v2 `GameScreen` (plan §4.2, phase 1)?
 
 **Answer: not yet.** The code, saves and automated gates are ready, and after the round-3
-device checks (§6) three items remain: F5 (Editor Test, blocked by a pre-existing editor
-touch bug), the owner's Pearl sign-off, and the release note / version-code plan.
+device checks (§6) three items remain: merging the editor touch fix (PR #21, with which
+Editor Test passed on the device — F5), the owner's Pearl sign-off, and the release note /
+version-code plan.
 Nothing here activates v2: `gameplay/engine` stays `legacy` on `main`.
 
 **Baseline:** `main` at `f50eb8c` (M1.3-D merge). CI run 45961420196 on `f50eb8c`: `headless`
@@ -31,7 +32,7 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 |Existing progress visible; Play resumes; Levels gating and stars match; Next / Undo / Restart / Pause work|Met|`M1_3_D_DEVICE_QA.md`, `v2/01–19`|
 |Undo during a level does not change stored stars|Met|049: Undo + win shows 2 stars, stored stays 3|
 |Complete at least 3 Classic levels including one of 021/080/090|**Met** (round 3)|021 (par, 3 stars), 049 (2-star replay, stored 3) and 001 (par, 3 stars, `shots/03_level1_win`). Stored stars and unlock unchanged.|
-|**Editor Test plays a custom level and writes no progress (F5)**|**Open — blocked by an editor defect**|On the device no block or gate can be placed: one tap reaches `EditorCanvas._gui_input` twice (`InputEventScreenTouch` plus the mouse event Godot emulates from it), and the Block / Gate / Wall tools toggle, so the second event removes what the first added. Evidence: the status line refreshes on a canvas tap but the grid stays empty (`shots/12a`, `12b`). Pre-existing since the editor was added (`1473bc4`); affects the legacy route too. Test was therefore not reached. The editor wrote nothing.|
+|Editor Test plays a custom level and writes no progress (F5)|**Met on the device with the fix in PR #21 (not yet merged)**|Round 3 found the editor unusable on a touchscreen: one tap reached `EditorCanvas._gui_input` twice (`InputEventScreenTouch` plus the emulated mouse click) and the toggle tools undid themselves (`m13r_device/shots/12a`, `12b`; pre-existing since `1473bc4`). PR #21 skips the emulated copy (new `test_editor_input`, red → green). With that build on the M31: blocks and gates placed, Validate "SOLVABLE (min moves: 2)", Test opened "Custom Level" on the v2 GameScreen, won in 2 moves, Back to Editor returned, saves byte-identical, no files written (`build/qa/f5_device/`). F5 closes when PR #21 merges.|
 |**Visual sign-off of the Pearl theme on the device (D3)**|**Open — owner decision**|Device screenshots after the F1–F4 fixes: `build/qa/m13d_device/fix/30–36` (menu, Pearl Level Select, game, pause).|
 |Rollback rehearsal: legacy build `install -r` → confirm progress → play one Classic level → reinstall v2 → confirm the new progress is merged|**Met for the round trip; merge of new progress not exercised**|Round 3: legacy build over v2, level 001 won on the legacy route; the legacy `Catalog` wrote nothing (no improvement); v2 reinstalled, menu Level 54, Level Select stars equal, both save files byte-identical before and after. A merge of *new* legacy progress only happens when the legacy build records an improvement, which would change the player's stars or unlock on this device; that case is covered by `test_progress_store` with the real legacy `Catalog`, not on the device.|
 |No crash / ANR / Godot script error in logcat|Met|v2, rollback, fix-build and round-3 sessions: 0 error lines|
@@ -64,9 +65,7 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 
 After the round-3 device checks (§6), three items remain:
 
-1. **F5 — fix the editor's touch input, then run Editor Test on the M31** (custom level plays,
-   no save change, Back to Editor). The fix is in `EditorCanvas._gui_input` (handle one of the
-   two events per tap) and needs its own reviewed change.
+1. **F5 — merge PR #21** (editor touch fix). Editor Test already passed on the M31 with it.
 2. Owner visual sign-off of the Pearl theme on the device (D3).
 3. Release note for the D1 strict-exit correction, and a `version/code` plan for release and
    rollback builds.
