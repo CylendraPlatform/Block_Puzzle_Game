@@ -40,6 +40,7 @@ func _initialize() -> void:
 	await _no_duplicate_commits()
 	_rollback_to_legacy()
 	_exit_settings()
+	await _device_ui()
 	_analytics = root.get_node("Analytics")
 	var sink: Callable = _analytics.remote_sink
 	var opt_out: bool = _settings.analytics_opt_out
@@ -169,6 +170,13 @@ func _save_case(faults: String) -> Control:
 	_win(screen)
 	return screen
 
+## Stars a Level Select cell draws (0 when it has no StarRow).
+func _stars_shown(button: Control) -> int:
+	for child in button.get_children():
+		if child is StarRow:
+			return child.earned
+	return 0
+
 func _last_route() -> String:
 	return str(_routes.back()) if not _routes.is_empty() else ""
 
@@ -216,7 +224,7 @@ func _migration_resume_and_gating() -> void:
 	var buttons: Array = levels._grid.get_children()
 	_ok(buttons.size() == 100, "Level Select lists the 100 Classic levels only (no Chapter 1)")
 	_ok(not buttons[5].disabled and buttons[6].disabled, "Level Select gating: 1-6 open, 7+ locked")
-	_ok(str(buttons[0].text).contains("***") and str(buttons[3].text).contains("**-"), "Level Select stars read by stable id")
+	_ok(_stars_shown(buttons[0]) == 3 and _stars_shown(buttons[3]) == 2 and _stars_shown(buttons[1]) == 0, "Level Select stars read by stable id (drawn StarRow)")
 	_routes.clear()
 	buttons[3].pressed.emit()
 	_ok(_last_route() == GameRoute.V2_SCENE and int(_settings.selected_level) == 3, "tapping level 4 routes to GameScreen")
@@ -275,6 +283,37 @@ func _rollback_to_legacy() -> void:
 	store = _progress.open_store(DIR)
 	_ok(store.unlocked("classic") == 9 and store.stars("classic", "legacy-1") == 3, "older progress.save never lowers progress")
 	_ok(int(legacy.load_progress()["unlocked"]) == 9, "open() resyncs progress.save for the legacy route")
+
+## M1.3-D F1/F3/F4: 48 dp touch targets, full-viewport modal dim, centred v2 board.
+func _device_ui() -> void:
+	_ok(is_equal_approx(UIKit.touch_size(56.0), 56.0), "desktop / headless DPI keeps the design minimum")
+	UIKit.simulate_width_dp = 411.0
+	var view := root.get_visible_rect().size.x
+	var want := ceilf(48.0 * view / 411.0)
+	_ok(is_equal_approx(UIKit.touch_size(0.0), want) and UIKit.touch_size(want + 10.0) == want + 10.0, "48 dp in canvas units on a 411 dp wide screen (%.0f)" % want)
+	var plain := UIKit.button("x", func() -> void: pass)
+	var themed := UIKit.button("y", func() -> void: pass)
+	TD35Theme.style_button(themed, false)
+	var compact := Button.new()
+	TD35Theme.style_compact(compact)
+	_ok(plain.custom_minimum_size.y >= want and themed.custom_minimum_size.y >= want and compact.custom_minimum_size.x >= want and compact.custom_minimum_size.y >= want, "UIKit / Pearl / compact buttons reach 48 dp")
+	plain.free()
+	themed.free()
+	compact.free()
+	var screen: Control = await _open_screen(0)
+	for _i in 3:
+		await process_frame
+	_ok(screen._moves.get_parent().get_parent() == screen._title.get_parent().get_parent() and screen._title.get_parent() == screen._moves.get_parent(), "Moves sits under the title in the HUD")
+	_ok(screen._board.center_vertically, "GameScreen centres the board vertically")
+	screen._on_pause()
+	var dim: ColorRect = null
+	for child in screen._pause_layer.get_children():
+		if child is ColorRect:
+			dim = child
+	_ok(dim != null and dim.get_global_rect().position.is_zero_approx() and dim.get_global_rect().size.is_equal_approx(root.get_visible_rect().size), "modal dim covers the whole viewport")
+	_ok(dim != null and dim.get_index() < screen._pause_layer.get_child_count() - 1, "modal dim is drawn before (under) the card")
+	_close(screen)
+	UIKit.simulate_width_dp = 0.0
 
 func _exit_settings() -> void:
 	var cfg := ConfigFile.new()

@@ -11,7 +11,7 @@ func _build() -> void:
 	bar.add_theme_constant_override("separation", 12)
 	var back := UIKit.button("Back", _on_back)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	back.custom_minimum_size = Vector2(120, UIKit.TOUCH_H)
+	back.custom_minimum_size = Vector2(120, UIKit.touch_size(UIKit.TOUCH_H))
 	bar.add_child(back)
 	var title := UIKit.wrapping_label("Settings", 26)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -40,7 +40,7 @@ func _shop_row() -> HBoxContainer:
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_font_size_override("font_size", 22)
-	l.custom_minimum_size = Vector2(0, UIKit.TOUCH_H)
+	l.custom_minimum_size = Vector2(0, UIKit.touch_size(UIKit.TOUCH_H))
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var owned: bool = IAP and IAP.has_entitlement("remove_ads")
 	l.text = "Remove Ads"
@@ -51,7 +51,7 @@ func _shop_row() -> HBoxContainer:
 			IAP.purchase("remove_ads"))
 	b.disabled = owned
 	b.size_flags_horizontal = Control.SIZE_SHRINK_END
-	b.custom_minimum_size = Vector2(120, UIKit.TOUCH_H)
+	b.custom_minimum_size = Vector2(120, UIKit.touch_size(UIKit.TOUCH_H))
 	b.pressed.connect(func() -> void:
 		b.text = "Owned"
 		b.disabled = true)
@@ -66,11 +66,11 @@ func _toggle(label: String, value: bool, cb: Callable) -> HBoxContainer:
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.custom_minimum_size = Vector2(0, UIKit.TOUCH_H)
+	l.custom_minimum_size = Vector2(0, UIKit.touch_size(UIKit.TOUCH_H))
 	l.add_theme_font_size_override("font_size", 22)
 	row.add_child(l)
 	var cb_btn := CheckButton.new()
-	cb_btn.custom_minimum_size = Vector2(UIKit.TOUCH_H, UIKit.TOUCH_H)
+	cb_btn.custom_minimum_size = Vector2(UIKit.touch_size(UIKit.TOUCH_H), UIKit.touch_size(UIKit.TOUCH_H))
 	cb_btn.button_pressed = value
 	cb_btn.toggled.connect(func(on):
 		if Audio: Audio.sfx("tap")
