@@ -4,10 +4,10 @@
 Levels open Classic on the v2 `GameScreen` (plan §4.2, phase 1)?
 
 **Answer: not yet.** The code, saves and automated gates are ready and every device criterion
-is met (F5 closed by PR #21). Remaining blockers (§5, §7): issue #23 not yet concluded (the
-round-4 run was compromised by another client on the shared device), Pearl D3 sign-off pending,
-the owner's confirmation of the highest distributed versionCode, a release keystore, and review
-of the release-metadata PR #24.
+is met (F5 closed by PR #21). Issue #23 is investigated: no navigation defect reproduced, and the
+original event is explained by input that did not come from the test script (§7, owner decides
+whether to close it). Remaining blockers: Pearl D3 sign-off, the owner's confirmation of the
+highest distributed versionCode, a release keystore, and review of the release-metadata PR #24.
 Nothing here activates v2: `gameplay/engine` stays `legacy` on `main`.
 
 **Update:** PR #21 (editor touch fix) merged as `cf123fb`; main CI run 45977194875 on `cf123fb`:
@@ -83,8 +83,9 @@ After the round-3 device checks (§6):
    - reproducible release metadata: **implemented in draft PR #24** (tracked
      `export_presets.cfg`, `docs/release/RELEASES.md` ledger, CI guard, release build script);
    - release keystore: **not created** (owner, per `docs/release/ANDROID_SIGNING.md` in #24).
-5. **Issue #23 investigation** — **not concluded** (§7): the round-4 repetition run was
-   compromised by another client taking over the device. Must be re-run.
+5. **Issue #23 investigation** — **done; no defect reproduced** (§7): 15 fully logged
+   repetitions correct, and the original jump happened with no adb input in the log (external
+   input, most likely a physical touch). Awaiting the owner's decision to close the issue.
 
 Done in round 4: player builds hide developer / QA entries (§7, verified with a real release
 export).
@@ -165,3 +166,26 @@ row 2 the two desktop save-problem dialogs, each labelled. D3 remains **pending*
 - **Result: no evidence either way; no cause is claimed and no fix was made.** Re-run when the
   device is not shared, with the log streamed to a file during the run (not read afterwards
   from the ring buffer) and a foreground-app check before every repetition.
+
+### A (continued). Issue #23 — attempt 2: no defect reproduced; external-input explanation
+- Re-run with the device log **streamed to a file** during the run (`-s godot:I QA23:I`) and a
+  **foreground check before every repetition** (the loop aborts if the game is not in front).
+- Repetitions 1–15 ran on the game with win-to-Menu delays of 0.1 / 0.3 / 0.6 / 1.0 / 1.5 /
+  2.5 s. **All 15 correct:** Menu fired once, Next never fired, Play logged `selected=-1` and
+  loaded index 53 (Level 54). In a 0.1 s case the Menu touch arrived 19 ms after the win card
+  appeared and was handled correctly.
+- Repetition 16 was invalid: the other adb client launched its app again at 13:48:11.353 (same
+  command as at 13:31:56, about 16 minutes apart), a fraction of a second after that
+  repetition's foreground check; about 8 scripted inputs went to that app. The check stopped
+  the loop before repetition 17. **The device is not exclusively ours while that client runs.**
+- **Original event, re-examined from the round-3 logcat:** Level 1 was won at 11:35:57.887; the
+  first Level 2 move was committed at 11:36:09.837. The adbd log shows **no input command from
+  any adb client** between 11:35:59.983 (a screenshot) and the next scripted tap at 11:36:12.142.
+  The Next press and the board drag that produced Level 2 therefore did not come over adb;
+  adbd records every client's shell commands but not physical touches. Most likely explanation:
+  a physical touch on the device. This is an inference from the log, not a recording.
+- **Conclusion:** no evidence of a navigation defect; no fix made. Owner decides whether to close
+  #23 as "not a game defect".
+- Device after the run: progress values unchanged (unlock 53, all 53 stars; `progress.save`
+  byte-identical; `progress_v2.save` `seq` 7 → 37 from the Level 1 replays); restored to the
+  legacy-default build with `install -r`, `firstInstallTime` unchanged.
