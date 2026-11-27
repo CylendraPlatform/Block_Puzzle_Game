@@ -27,6 +27,6 @@
       ["red_l", "exit"]
     ],
     "prompt": "Every shape has one way out.",
-    "intent": "Each door is as wide as its block must be: the red L needs both bottom cells 4-5, the blue T needs left rows 2-3, the green bar the single top cell 1, the yellow bar right-edge row 4. The yellow bar and blue T block each other until yellow steps aside; the red L's foot closes the green bar's column, and the green bar closes the red L's column."
+    "intent": "Each door is as wide as its block must be: the red L needs both bottom cells 4-5, the blue T needs left rows 2-3, the green bar the single top cell 1, the yellow bar right-edge row 4. The yellow bar and blue T block each other until yellow parks out of the way (right, or up); the red L's foot closes the green bar's column, and the green bar closes the red L's column."
   }
 }

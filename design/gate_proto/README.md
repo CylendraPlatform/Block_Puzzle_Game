@@ -11,6 +11,14 @@ levels and player progress are untouched; `gameplay/engine` stays `legacy`. This
    already support, and what an implementation cycle would change.
 3. `VISUAL_PROPOSALS.md` with `mockups/`: three visual directions, mobile composition, exit
    storyboard.
+4. `LEVEL_C_REVIEW.md`: what Level C's 65 optimal sequences are, and its place in Chapter 1.
+5. `ART_SPEC.md`: recommended art direction (Carved Pearl) and its visual specification;
+   side-by-side comparison in `mockups/art_direction_comparison.png`.
+6. `MILESTONE_GP1.md`: the minimal implementation milestone (three levels, isolated dev route).
+
+Owner review of `cf493760` (2026-11-27): gameplay model provisionally approved; visual
+direction and implementation not yet approved. This PR stays a design reference, not a feature
+merge. PR #27 (cell doors) is superseded and stays unmerged.
 
 ## Contents
 
@@ -21,17 +29,27 @@ levels and player progress are untouched; `gameplay/engine` stays `legacy`. This
 | `levels/proto_c.json` | Level C "Turn the Corner", 6x6, four irregular shapes, par 9 |
 | `mockups/*.png` | Board mockups and visual directions (Pillow renders, not device captures) |
 | `mockups/render_mockups.py` | Regenerates the mockups: `python design/gate_proto/mockups/render_mockups.py` |
-| `../../test/proto_gates_check.gd` | Validation of the three levels |
+| `../../test/proto_gates_check.gd` | Validation of the three levels (quality bar + gate grammar) |
+| `../../test/proto_level_analysis.gd` | Enumerates every optimal sequence of a level (Level C review) |
 
-## Validation (2026-11-27, Godot 4.7.2 headless, Windows desktop)
+## Validation (2026-11-28, Godot 4.7.2 headless, Windows desktop)
 
 ```
 godot --headless --path . --script res://test/proto_gates_check.gd
 ```
-Exit code 0: 26 checks, 0 failures. Per level: schema-v2 load clean; `SolverV2` minimum ==
-authored par; the authored solution replays through `PuzzleEngine.transition` and wins; every
-gate reachable (`PuzzleMetrics`); each gate binding (widening it alone to the full edge
-shortens the best solution); all gates full-edge is much shorter.
+Exit code 0: 72 checks, 0 failures. Per level:
+- schema-v2 load clean; `SolverV2` minimum == authored par; the authored solution replays
+  through `PuzzleEngine.transition` and wins;
+- `PuzzleMetrics`: agrees on the minimum, every gate reachable, optimal-sequence count complete,
+  and in B and C the pieces are proven to depend on each other and to interact;
+- no block can exit on move 1;
+- gate grammar: 1-3 cells, one colour per gate, one gate per colour, no overlap on an edge, no
+  two gates sharing a corner, every required block fits through a gate of its colour;
+- each gate binding (widening it alone to the full edge shortens the best solution); all gates
+  full-edge is much shorter.
+
+A self-test feeds the grammar checks a level with 5 planted violations and requires all 5 to be
+caught (they are; those FAIL lines in the log are expected and not counted).
 
 | Level | Par (SolverV2) | States | All doors full-edge | One door full-edge | Optimal sequences | Pieces interdependent |
 |---|---|---|---|---|---|---|

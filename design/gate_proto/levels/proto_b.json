@@ -21,6 +21,6 @@
       ["red_bar", "right", [3, 2]], ["red_bar", "exit"]
     ],
     "prompt": "Two doors, three blocks. Order matters.",
-    "intent": "Red door: top edge, columns 3-4. Blue door: left edge, rows 3-4. The red dot sits in the blue bar's escape lane, the blue bar sits in the red bar's escape column, and the red bar, once lined up, blocks both. The dot leaves first, then the blue bar, then the red bar."
+    "intent": "Red door: top edge, columns 3-4. Blue door: left edge, rows 3-4. The red dot sits in the blue bar's escape lane, the blue bar sits in the red bar's escape column, and the red bar, once lined up, blocks both. So the dot must step aside first, and the blue bar must come down out of column 3 before the red bar lines up."
   }
 }

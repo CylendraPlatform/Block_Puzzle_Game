@@ -99,7 +99,8 @@ Solution: red down to (1,2); red exits right.
 Red door: top edge, columns 3-4. Blue door: left edge, rows 3-4. A red bar, a red dot and a blue
 bar. The dot sits in the blue bar's escape row; the blue bar sits in the red bar's escape
 column; the red bar, once lined up, closes the blue bar's way down. So the dot must step out of
-row 4 before the blue bar comes down, and the blue bar must leave before the red bar can.
+row 4 first (the only optimal first move of 18), and the blue bar must come down out of
+column 3 before the red bar lines up under it.
 Teaches: *two colours, two places, order matters.* Widening the red door alone gives 4 moves,
 the blue door alone 5, both 3.
 Solution: dot right to (4,4); dot exits up; blue down to (3,3); blue exits left; red bar right to
@@ -108,13 +109,15 @@ each other.
 
 ### Level C "Turn the Corner" (6x6, par 9)
 Red L (needs bottom columns 4-5), blue T (needs left rows 2-3), green I3 (needs top column 1),
-yellow bar (needs right row 4). Yellow and the T block each other until yellow steps aside; the
+yellow bar (needs right row 4). Yellow and the T block each other until yellow parks out of
+the way (right, or up); the
 L's foot closes the I3's column; the I3 closes the L's column. Teaches: *the shape decides
 which opening fits, and blocks become obstacles.* Widening any one door alone gives 7 or 8
 moves, all four 4. `PuzzleMetrics`: 65 optimal move sequences, no shorter solution,
 pieces proven to depend on each other.
 Solution: yellow right to (4,2); T up to (1,2); T exits left; L right to (4,0); I3 left to (1,3);
 I3 exits up; yellow down to (4,4); yellow exits right; L exits down.
+Placement: second half of Chapter 1, not early (`LEVEL_C_REVIEW.md`).
 
 ## 6. Player feedback (presentation only, no rule change)
 

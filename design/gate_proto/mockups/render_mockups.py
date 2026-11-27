@@ -1,9 +1,11 @@
 """Positioned-gate proposal: board mockups for the three prototype levels in three visual
 directions. Design artwork only (Pillow), not game code. Reads ../levels/*.json.
 
-Usage: python render_mockups.py            (writes PNGs next to this script)
+Usage: python render_mockups.py            (writes all PNGs next to this script)
+       python render_mockups.py compare    (only art_direction_comparison.png)
 """
 import json
+import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageChops
 
@@ -301,7 +303,52 @@ def sheet(tiles, title, subtitle, out, page=(255, 246, 236), cap=(40, 52, 80)):
     print(out.name, img.size)
 
 
+def comparison(level, out):
+    """One row per direction, same level, same cell size (84 pt) for every board and crop.
+    Columns: full board, door close-up x2, block close-up x2, phone screen."""
+    cell, margin = 84, 40
+    f = int(cell * SS * 0.42) / SS
+    o = margin + f  # board origin in output pixels
+    door = (int(o - f - 6), int(o + cell * 1.6), int(o + cell * 1.4), int(o + cell * 4.4))   # blue left door
+    block = (int(o + cell * 0.8), int(o + cell * 3.8), int(o + cell * 6) + 6, int(o + cell * 6) + int(f) + 8)  # T, I3, red door
+    rows = []
+    for s in ("pearl", "glass", "wood"):
+        board = render_board(level, s, cell=cell, margin=margin)
+        d = board.crop(door)
+        b = board.crop(block)
+        rows.append((STYLES[s]["title"], [board, d.resize((d.width * 2, d.height * 2), Image.LANCZOS),
+                                          b.resize((b.width * 2, b.height * 2), Image.LANCZOS), phone(level, s, "Moves 0  /  Par 9")]))
+    pad, head, cap_h = 30, 190, 46
+    heads = ["Board (84 pt cells)", "Door close-up x2", "Blocks + door x2", "Phone 390x844 pt"]
+    col_w = [max(r[1][i].width for r in rows) for i in range(4)]
+    row_h = [max(t.height for t in r[1]) for r in rows]
+    W = sum(col_w) + pad * 5
+    H = head + sum(h + cap_h + pad for h in row_h) + pad
+    img = Image.new("RGB", (W, H), (255, 246, 236))
+    d = ImageDraw.Draw(img)
+    cap = (40, 52, 80)
+    d.text((pad, 24), "Art directions side by side - Level C, same scale", fill=cap, font=font(40, True))
+    d.text((pad, 80), "Every board and crop is the same level at the same cell size; close-ups are 2x crops of that board.", fill=cap, font=font(24))
+    y = head
+    for (title, tiles), h in zip(rows, row_h):
+        d.text((pad, y), title, fill=cap, font=font(28, True))
+        x = pad
+        for i, t in enumerate(tiles):
+            img.paste(t, (x, y + cap_h))
+            x += col_w[i] + pad
+        y += h + cap_h + pad
+    x = pad
+    for i, label in enumerate(heads):
+        d.text((x, 130), label, fill=cap, font=font(24, True))
+        x += col_w[i] + pad
+    img.save(out, optimize=True)
+    print(out.name, img.size)
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "compare":
+        comparison(load("proto_c.json"), HERE / "art_direction_comparison.png")
+        return
     a, b, c = load("proto_a.json"), load("proto_b.json"), load("proto_c.json")
     sheet([(render_board(lv, "pearl", cell=80), f"Level {tag}  {lv['name']}  (par {lv['authored_metrics']['par']})")
            for lv, tag in ((a, "A"), (b, "B"), (c, "C"))],
