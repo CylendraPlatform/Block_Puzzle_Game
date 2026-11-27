@@ -59,7 +59,7 @@ jobs:
             test_m1_1_phase_d test_m1_1_fixes test_m1_2_view test_m1_2_sequencing
             test_m1_2_dev_solve_lifecycle test_progress_store test_td36_benchmarks test_td36_metrics
             solve_benchmarks solve_advanced_benchmarks test_v2_campaign test_classic_score
-            test_game_screen test_editor_input"
+            test_game_screen test_editor_input test_board_geometry"
           failed=""
           for t in $tests; do
             echo "::group::$t"
