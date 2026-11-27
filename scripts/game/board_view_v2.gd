@@ -19,6 +19,13 @@ const EDGE_ZONE := 48.0
 ## defaults and the fallback for a missing or non-positive value.
 const EXIT_PAST_SETTING := "gameplay/exit_past"
 const EXIT_PAST_EDGE_SETTING := "gameplay/exit_past_edge"
+## Frame band width around the board, in cells. Gate slots sit inside it.
+const FRAME_RATIO := 0.26
+## Minimum space above and below the frame when the view's height is the limit.
+const FRAME_GAP_Y := 12.0
+## Part of the frame band, from the board edge outwards, that a gate slot occupies; the rest
+## stays as an unbroken outer rim.
+const GATE_DEPTH := 0.8
 
 var definition: Dictionary = {}
 var state: PuzzleState
@@ -294,17 +301,37 @@ func _process(delta: float) -> void:
 				_visual[id] = target
 	queue_redraw()
 
+## The frame is fitted together with the board: its outer edge spans the view's width (the
+## same content edges as the HUD buttons) unless the height is the limit, and it never
+## leaves the view. Gates are drawn inside the frame band.
 func _layout() -> void:
 	var board: Dictionary = definition.get("board", {})
 	var cols := int(board.get("cols", 1))
 	var rows := int(board.get("rows", 1))
-	var margin := 36.0
-	var avail := Vector2(maxf(1.0, size.x - margin * 2.0), maxf(1.0, size.y - margin * 2.0))
-	_cell = minf(avail.x / float(cols), avail.y / float(rows))
+	var span := Vector2(cols, rows) + Vector2.ONE * FRAME_RATIO * 2.0
+	var avail := Vector2(maxf(1.0, size.x), maxf(1.0, size.y - FRAME_GAP_Y * 2.0))
+	_cell = minf(avail.x / span.x, avail.y / span.y)
+	var frame := _cell * FRAME_RATIO
 	var board_size := Vector2(_cell * cols, _cell * rows)
-	var spare_y := maxf(0.0, size.y - board_size.y)
+	var outer_h := board_size.y + frame * 2.0
+	var spare_y := maxf(0.0, size.y - outer_h)
 	var top := spare_y * 0.5 if center_vertically else minf(28.0, spare_y * 0.16)
-	_origin = Vector2((size.x - board_size.x) * 0.5, top)
+	_origin = Vector2((size.x - board_size.x) * 0.5, top + frame)
+
+## Board and frame geometry in this view's local coordinates (tests and diagnostics).
+func board_rect() -> Rect2:
+	var board: Dictionary = definition.get("board", {})
+	return Rect2(_origin, Vector2(int(board.get("cols", 1)), int(board.get("rows", 1))) * _cell)
+
+func frame_rect() -> Rect2:
+	return board_rect().grow(_cell * FRAME_RATIO)
+
+## The cell under a local point; points on the frame or outside map off the board.
+func cell_at(local: Vector2) -> Vector2i:
+	return _cell_at(local)
+
+func cell_center(cell: Vector2i) -> Vector2:
+	return _px(cell) + Vector2(_cell, _cell) * 0.5
 
 func _px(cell: Vector2i) -> Vector2:
 	return _origin + Vector2(cell) * _cell
@@ -324,9 +351,7 @@ func _draw() -> void:
 	var board: Dictionary = definition.get("board", {})
 	var cols := int(board.get("cols", 1))
 	var rows := int(board.get("rows", 1))
-	var frame := _cell * 0.26
-	var outer := Rect2(_origin - Vector2(frame, frame), Vector2(cols, rows) * _cell + Vector2(frame, frame) * 2.0)
-	_round(outer, TD35Theme.FRAME, int(clampf(_cell * 0.22, 12.0, 28.0)))
+	_round(frame_rect(), TD35Theme.FRAME, int(clampf(_cell * 0.22, 12.0, 28.0)))
 	var inner := Rect2(_origin, Vector2(cols, rows) * _cell)
 	_round(inner, TD35Theme.BASE, int(clampf(_cell * 0.12, 8.0, 18.0)))
 	var gap := clampf(_cell * 0.08, 2.0, 4.0)
@@ -414,37 +439,39 @@ func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 	if locked:
 		color = color.darkened(0.45)
 		color.s *= 0.5
-	var lo := int(gate.get("lo", 0))
-	var hi := int(gate.get("hi", lo))
-	var span := float(hi - lo + 1) * _cell
-	var frame := _cell * 0.26
-	var pad := clampf(_cell * 0.08, 2.0, 6.0)
-	var mouth := clampf(_cell * 0.2, 8.0, 22.0)
-	var hole := Rect2()
-	var lip := Rect2()
-	var side := str(gate.get("side", ""))
-	match side:
-		"left":
-			hole = Rect2(_origin.x - frame, _origin.y + lo * _cell + pad, frame + 2.0, span - pad * 2.0)
-			lip = Rect2(_origin.x - mouth, hole.position.y, mouth + 2.0, hole.size.y)
-		"right":
-			hole = Rect2(_origin.x + cols * _cell - 2.0, _origin.y + lo * _cell + pad, frame + 2.0, span - pad * 2.0)
-			lip = Rect2(_origin.x + cols * _cell - 2.0, hole.position.y, mouth + 2.0, hole.size.y)
-		"top":
-			hole = Rect2(_origin.x + lo * _cell + pad, _origin.y - frame, span - pad * 2.0, frame + 2.0)
-			lip = Rect2(hole.position.x, _origin.y - mouth, hole.size.x, mouth + 2.0)
-		"bottom":
-			hole = Rect2(_origin.x + lo * _cell + pad, _origin.y + rows * _cell - 2.0, span - pad * 2.0, frame + 2.0)
-			lip = Rect2(hole.position.x, _origin.y + rows * _cell - 2.0, hole.size.x, mouth + 2.0)
-		_:
-			return
-	_round(hole, TD35Theme.CANVAS, int(clampf(_cell * 0.12, 4.0, 12.0)))
-	_round(lip, color, int(clampf(_cell * 0.1, 3.0, 8.0)))
+	var slot := gate_slot(gate, cols, rows)
+	if slot.size == Vector2.ZERO:
+		return
+	# The slot is a recess in the frame band, the same colour as the board bed, so the gate
+	# reads as an opening in an unbroken frame; the coloured lip sits inside it.
+	var lip := slot.grow(-maxf(1.5, _cell * FRAME_RATIO * 0.1))
+	_round(slot, TD35Theme.BASE, int(clampf(_cell * 0.08, 3.0, 8.0)))
+	_round(lip, color, int(clampf(_cell * 0.06, 2.0, 6.0)))
 	if locked:
 		_glyph_lock(lip.get_center())
 	var remaining := int(gstate.get("counter_remaining", -1))
 	if remaining > 0:
 		_badge(lip.get_center(), str(remaining))
+
+## A gate's slot in local coordinates: along its edge from `lo` to `hi` (inset by a small
+## pad), and from the board edge outwards over GATE_DEPTH of the frame band. It overlaps the
+## board edge by one pixel so no seam shows. Empty for an unknown side.
+func gate_slot(gate: Dictionary, cols: int, rows: int) -> Rect2:
+	var lo := int(gate.get("lo", 0))
+	var hi := int(gate.get("hi", lo))
+	var along := float(hi - lo + 1) * _cell
+	var pad := clampf(_cell * 0.08, 2.0, 6.0)
+	var depth := _cell * FRAME_RATIO * GATE_DEPTH
+	match str(gate.get("side", "")):
+		"left":
+			return Rect2(_origin.x - depth, _origin.y + lo * _cell + pad, depth + 1.0, along - pad * 2.0)
+		"right":
+			return Rect2(_origin.x + cols * _cell - 1.0, _origin.y + lo * _cell + pad, depth + 1.0, along - pad * 2.0)
+		"top":
+			return Rect2(_origin.x + lo * _cell + pad, _origin.y - depth, along - pad * 2.0, depth + 1.0)
+		"bottom":
+			return Rect2(_origin.x + lo * _cell + pad, _origin.y + rows * _cell - 1.0, along - pad * 2.0, depth + 1.0)
+	return Rect2()
 
 ## A small padlock glyph (shackle arc + body) so a locked gate reads without colour.
 func _glyph_lock(center: Vector2) -> void:
@@ -504,7 +531,6 @@ func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) 
 	color.a = alpha
 	var shadow := PackedVector2Array()
 	var body := PackedVector2Array()
-	var gloss := PackedVector2Array()
 	var lifted := 1.0
 	if id == _drag_id and alpha > 0.99:
 		lifted = 1.025
@@ -512,9 +538,10 @@ func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) 
 		var pixel := base + Vector2(corner) * _cell
 		var from_center := pixel - (base + center * _cell)
 		var placed := base + center * _cell + from_center * 0.94 * lifted
-		shadow.append(placed + Vector2(0, _cell * 0.08))
+		# Within the 3 % inset the 0.94 scale leaves, so a resting piece's shadow stays on its
+		# own cells and never spills onto the frame or a gate.
+		shadow.append(placed + Vector2(0, _cell * 0.03))
 		body.append(placed)
-		gloss.append(placed + Vector2(-_cell * 0.03, -_cell * 0.06))
 	var shadow_color := Color(TD35Theme.SHADOW, 0.28 * alpha)
 	draw_colored_polygon(shadow, shadow_color)
 	var edge := color.darkened(0.28)
@@ -522,7 +549,15 @@ func _draw_piece(id: String, geometry: Dictionary, base: Vector2, alpha: float) 
 	draw_colored_polygon(body, color)
 	var shine := color.lightened(0.28)
 	shine.a = 0.42 * alpha
-	draw_colored_polygon(gloss, shine)
+	# Gloss: the body shrunk inwards, nudged up by less than the shrink, so it always stays
+	# inside the piece outline (also for L-shapes).
+	var inset := _cell * 0.07
+	for gloss in Geometry2D.offset_polygon(body, -inset, Geometry2D.JOIN_MITER):
+		var moved := PackedVector2Array()
+		for point in gloss:
+			moved.append(point + Vector2(0, -inset * 0.5))
+		if moved.size() >= 3:
+			draw_colored_polygon(moved, shine)
 	var outline := body.duplicate()
 	if outline.size() > 0:
 		outline.append(outline[0])

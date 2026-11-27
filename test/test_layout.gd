@@ -45,7 +45,11 @@ func _initialize() -> void:
 	var cases := [
 		{"name": "360x800", "size": Vector2i(360, 800), "insets": Vector4(0, 96, 0, 48)},
 		{"name": "393x852", "size": Vector2i(393, 852), "insets": Vector4(0, 100, 0, 56)},
+		{"name": "411x891", "size": Vector2i(411, 891), "insets": Vector4(0, 100, 0, 56)},
 		{"name": "412x915", "size": Vector2i(412, 915), "insets": Vector4(0, 108, 0, 64)},
+		# Galaxy M31 game canvas (1080x2340 at 1.5 px per canvas unit). Insets estimated from the
+		# device captures: 56 canvas units more at the top than the bottom.
+		{"name": "m31-720x1560", "size": Vector2i(720, 1560), "insets": Vector4(0, 56, 0, 0)},
 		{"name": "360x900-punch", "size": Vector2i(360, 900), "insets": Vector4(0, 128, 0, 48)},
 		{"name": "360x800-sides", "size": Vector2i(360, 800), "insets": Vector4(40, 80, 40, 48)},
 	]
