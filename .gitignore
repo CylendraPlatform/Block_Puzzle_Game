@@ -4,11 +4,14 @@ build/
 *.apk
 *.aab
 *.keystore
+*.jks
 local.properties
 
 # Godot
+# export_presets.cfg is tracked: it holds the Android version code and package metadata.
+# Godot 4 keeps keystore paths, users and passwords in .godot/export_credentials.cfg (ignored
+# below) or reads them from GODOT_ANDROID_KEYSTORE_* environment variables; never add them here.
 .godot/
-export_presets.cfg
 *.import
 *.translation
 
