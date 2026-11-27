@@ -3,8 +3,9 @@
 **Question:** is the project ready to flip `gameplay/engine` from `legacy` to `v2` so Play and
 Levels open Classic on the v2 `GameScreen` (plan §4.2, phase 1)?
 
-**Answer: not yet.** The code, saves and automated gates are ready. Six items from the plan's
-own acceptance list (§8.2) or release process are still open; four are short device tasks.
+**Answer: not yet.** The code, saves and automated gates are ready, and after the round-3
+device checks (§6) three items remain: F5 (Editor Test, blocked by a pre-existing editor
+touch bug), the owner's Pearl sign-off, and the release note / version-code plan.
 Nothing here activates v2: `gameplay/engine` stays `legacy` on `main`.
 
 **Baseline:** `main` at `f50eb8c` (M1.3-D merge). CI run 45961420196 on `f50eb8c`: `headless`
@@ -29,12 +30,12 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 |`install -r` only; `firstInstallTime` unchanged; no clear/uninstall; menu label and stars recorded before and after|Met|Level 54 and all 53 star values preserved through every install|
 |Existing progress visible; Play resumes; Levels gating and stars match; Next / Undo / Restart / Pause work|Met|`M1_3_D_DEVICE_QA.md`, `v2/01–19`|
 |Undo during a level does not change stored stars|Met|049: Undo + win shows 2 stars, stored stays 3|
-|**Complete at least 3 Classic levels including one of 021/080/090**|**Open — 2 of 3**|021 (par, 3 stars) and 049 were won; 022 was opened but not completed. 080/090 are locked on this device; 021 satisfies the "one of" part. Needs one more completed, already-unlocked level (won at or below its stored stars so nothing changes).|
-|**Editor Test plays a custom level and writes no progress (F5)**|**Open**|Headless tests only (`test_game_screen` editor isolation).|
+|Complete at least 3 Classic levels including one of 021/080/090|**Met** (round 3)|021 (par, 3 stars), 049 (2-star replay, stored 3) and 001 (par, 3 stars, `shots/03_level1_win`). Stored stars and unlock unchanged.|
+|**Editor Test plays a custom level and writes no progress (F5)**|**Open — blocked by an editor defect**|On the device no block or gate can be placed: one tap reaches `EditorCanvas._gui_input` twice (`InputEventScreenTouch` plus the mouse event Godot emulates from it), and the Block / Gate / Wall tools toggle, so the second event removes what the first added. Evidence: the status line refreshes on a canvas tap but the grid stays empty (`shots/12a`, `12b`). Pre-existing since the editor was added (`1473bc4`); affects the legacy route too. Test was therefore not reached. The editor wrote nothing.|
 |**Visual sign-off of the Pearl theme on the device (D3)**|**Open — owner decision**|Device screenshots after the F1–F4 fixes: `build/qa/m13d_device/fix/30–36` (menu, Pearl Level Select, game, pause).|
-|**Rollback rehearsal: legacy build `install -r` → confirm progress → play one Classic level → reinstall v2 → confirm the new progress is merged**|**Partly done**|Done: legacy build over v2, progress confirmed, legacy route opens Level 54, nothing written. Not done: a Classic level played on the legacy build, then the v2 reinstall and merge check.|
-|No crash / ANR / Godot script error in logcat|Met|v2, rollback and fix-build sessions: 0 error lines|
-|**Commit handling time recorded**|**Open**|Not measured on the M31 for `GameScreen`. FPS is not claimed.|
+|Rollback rehearsal: legacy build `install -r` → confirm progress → play one Classic level → reinstall v2 → confirm the new progress is merged|**Met for the round trip; merge of new progress not exercised**|Round 3: legacy build over v2, level 001 won on the legacy route; the legacy `Catalog` wrote nothing (no improvement); v2 reinstalled, menu Level 54, Level Select stars equal, both save files byte-identical before and after. A merge of *new* legacy progress only happens when the legacy build records an improvement, which would change the player's stars or unlock on this device; that case is covered by `test_progress_store` with the real legacy `Catalog`, not on the device.|
+|No crash / ANR / Godot script error in logcat|Met|v2, rollback, fix-build and round-3 sessions: 0 error lines|
+|Commit handling time recorded|**Met** (round 3)|`[perf] commit_ms` (QA-only instrumentation, see §6): non-winning commits **5.7–10.0 ms** (12 samples); winning commits incl. both save writes **30.9–50.0 ms** (4 samples; 50.0 ms was the first, cold write). FPS is not claimed.|
 
 ## 3. Release and product items
 
@@ -61,22 +62,36 @@ success, `classic-compat` success. Evidence: `docs/tasks/M1_3_D_DEVICE_QA.md` an
 
 ## 5. What remains before the activation PR
 
-Device tasks (non-destructive, `install -r` only, completed levels only so no progress moves):
+After the round-3 device checks (§6), three items remain:
 
-1. Editor Test on the M31 with a custom level; confirm no save change (closes F5).
-2. Complete one more already-unlocked Classic level on v2 (3rd completion).
-3. Finish the rollback rehearsal: play one Classic level on the legacy build, reinstall the v2
-   build, confirm the progress merges.
-4. Record commit handling time on the device (instrumented debug build or timestamped input
-   and frame logs; no FPS claim without a profiler).
-
-Owner / release tasks:
-
-5. Owner visual sign-off of the Pearl theme on the device (D3).
-6. Release note for the D1 strict-exit correction, and a `version/code` plan for release and
+1. **F5 — fix the editor's touch input, then run Editor Test on the M31** (custom level plays,
+   no save change, Back to Editor). The fix is in `EditorCanvas._gui_input` (handle one of the
+   two events per tap) and needs its own reviewed change.
+2. Owner visual sign-off of the Pearl theme on the device (D3).
+3. Release note for the D1 strict-exit correction, and a `version/code` plan for release and
    rollback builds.
 
-When 1–6 are done, the activation PR is small: set `gameplay/engine="v2"` in `project.godot`,
+Optional: exercising the merge of *new* legacy progress on the device needs the legacy build to
+record an improvement (for example raising a 1-star level), which changes the player's saved
+stars; it is done only with the owner's approval.
+
+When 1–3 are done, the activation PR is small: set `gameplay/engine="v2"` in `project.godot`,
 update the test that asserts the shipped default, and re-run the full regression, CI and a
 device smoke test. It needs its own approval and is not merged automatically. Chapter 1
 (M1.3-E) is out of scope here.
+
+## 6. Round 3 device checks (2026-11-27)
+
+|Item|Value|
+|---|---|
+|Builds|From `367489b` (= `main` `f50eb8c` + this document): `BlockPuzzle-M1.3R-legacy-debug.apk` (default `legacy`) and `BlockPuzzle-M1.3R-v2perf-debug.apk`, exported with two temporary, uncommitted changes reverted right after export: `gameplay/engine="v2"`, and one `[perf] commit_ms` print in `GameScreen._on_commit` (same form as `pilot_game.gd:183`). The APK was checked to carry `engine=v2`.|
+|Device / install|Galaxy M31, same signing certificate (`f3349434…`), `adb install -r` only, `firstInstallTime` unchanged (2026-11-25 18:09:18). No uninstall, no data clear.|
+|Progress|Level 54 and all 53 star values unchanged throughout; four level 001 wins advanced `progress_v2.save` `seq` 3 → 7 with identical values; `progress.save` byte-identical throughout.|
+|Evidence|`build/qa/m13r_device/` (gitignored): `baseline/`, `shots/` (01–24), `after_v2/`, `after_legacy/`, `after_roundtrip/`, logcats (0 error lines each).|
+|Device left on|the legacy-default build|
+
+**Unexplained once, not reproduced:** in the first attempt, after level 001's win card, the
+next taps ended on Level 2 (the log shows commits on `legacy-2`), as if Next had fired instead
+of Menu. Level 2 was not completed, so nothing was saved. Replaying the same taps and timing
+twice, and dragging from the Next button, all behaved correctly (Menu → main menu, Play →
+Level 54). Recorded for review; no cause found.
