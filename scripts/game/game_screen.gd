@@ -30,6 +30,13 @@ var _save_note: Label
 var _retry: Button
 var _next: Button
 var _pause_layer: Control
+## Asks before leaving a won attempt whose save failed (Menu, Levels, Restart).
+var _confirm_layer: Control
+var _confirm_note: Label
+var _confirm_action := Callable()
+
+const UNSAVED_LEAVE_NOTE := "This win could not be saved. If you leave now it will be lost when the game closes, unless a later save succeeds."
+const UNSAVED_RETRY_FAILED := "Saving failed again. If you leave now this win will be lost when the game closes, unless a later save succeeds."
 
 func _ready() -> void:
 	_build()
@@ -122,6 +129,15 @@ func _build() -> void:
 		_on_restart(), false)
 	_modal_button(pv, "Levels", _on_levels, false)
 	_modal_button(pv, "Main Menu", _on_menu, false)
+	var confirm := _modal(safe, "Progress Not Saved")
+	_confirm_layer = confirm["layer"]
+	var cv: VBoxContainer = confirm["box"]
+	_confirm_note = UIKit.wrapping_label(UNSAVED_LEAVE_NOTE, 16, TD35Theme.NAVY)
+	cv.add_child(_confirm_note)
+	cv.move_child(_confirm_note, 1)
+	_modal_button(cv, "Retry Save", _on_confirm_retry, true)
+	_modal_button(cv, "Leave Anyway", _on_confirm_leave, false)
+	_modal_button(cv, "Stay", _on_confirm_stay, false)
 
 func _modal(safe: Node, heading: String) -> Dictionary:
 	var modal := UIKit.modal(safe, heading)
@@ -185,6 +201,8 @@ func _start(definition: Dictionary) -> void:
 	_board.set_locked(false)
 	_board.show_state(_definition, _session.state)
 	_win_layer.visible = false
+	_confirm_layer.visible = false
+	_confirm_action = Callable()
 	_set_pause(false)
 	_refresh()
 
@@ -260,12 +278,14 @@ func _save_pending() -> bool:
 func _show_save_status() -> void:
 	var notes := {
 		"partial": "Progress saved. A backup copy could not be written and will be retried.",
-		"failed": "Progress could not be saved. Tap Retry Save before leaving.",
-		"read_only": "Progress not saved: this device has a save from a newer version.",
+		"failed": "Progress could not be saved. The next level stays locked until this win is saved. Tap Retry Save.",
+		"read_only": "Progress is not being saved: this device has a save from a newer version of the game.",
 	}
 	_save_note.text = str(notes.get(_save_status, ""))
 	_save_note.visible = notes.has(_save_status)
 	_retry.visible = _save_pending()
+	# Advancing on an unsaved win would stack more progress that exists only in memory.
+	_next.disabled = _save_status == "failed"
 
 func _on_retry_save() -> void:
 	if _save_pending():
@@ -276,6 +296,39 @@ func _on_retry_save() -> void:
 func _retry_pending_save() -> void:
 	if _save_pending():
 		_persist_win()
+
+## Menu, Levels and Restart on a win whose save still fails after one more try: ask first.
+## Returns true when the confirmation took over (the caller must not continue).
+func _confirm_if_unsaved(action: Callable) -> bool:
+	_retry_pending_save()
+	if _save_status != "failed":
+		return false
+	_confirm_action = action
+	_confirm_note.text = UNSAVED_LEAVE_NOTE
+	_confirm_layer.visible = true
+	return true
+
+func _on_confirm_retry() -> void:
+	_persist_win()
+	if _save_status == "failed":
+		_confirm_note.text = UNSAVED_RETRY_FAILED
+		return
+	_run_confirmed()
+
+func _on_confirm_leave() -> void:
+	push_warning("leaving with an unsaved win (level %d)" % _level_number())
+	_run_confirmed()
+
+func _on_confirm_stay() -> void:
+	_confirm_layer.visible = false
+	_confirm_action = Callable()
+
+func _run_confirmed() -> void:
+	_confirm_layer.visible = false
+	var action := _confirm_action
+	_confirm_action = Callable()
+	if action.is_valid():
+		action.call()
 
 func _process(_delta: float) -> void:
 	if _session == null or not _session.input_locked or _board.transition_active():
@@ -311,9 +364,11 @@ func _on_undo() -> void:
 		Analytics.log_event("undo_used", {"level": _level_number()})
 
 func _on_restart() -> void:
-	if _session == null:
+	if _session == null or _confirm_if_unsaved(_restart_now):
 		return
-	_retry_pending_save()
+	_restart_now()
+
+func _restart_now() -> void:
 	if Analytics:
 		Analytics.log_event("level_restart", {"level": _level_number()})
 	if _custom:
@@ -322,7 +377,7 @@ func _on_restart() -> void:
 		_load_index(_index)
 
 func _on_pause() -> void:
-	if _session != null and not _win_layer.visible:
+	if _session != null and not _win_layer.visible and not _confirm_layer.visible:
 		_set_pause(true)
 
 func _on_resume() -> void:
@@ -336,6 +391,9 @@ func _on_next() -> void:
 		GameRoute.go(get_tree(), GameRoute.EDITOR_SCENE)
 		return
 	_retry_pending_save()
+	if _save_status == "failed":
+		_show_save_status()
+		return
 	if _index + 1 < _entries.size():
 		# Interstitial opportunity between levels (no-op unless a provider is set).
 		if Ads and (_index + 1) % 3 == 0:
@@ -346,10 +404,12 @@ func _on_next() -> void:
 		_title.text = "All levels complete!"
 
 func _on_menu() -> void:
-	_leave(GameRoute.MENU_SCENE)
+	if not _confirm_if_unsaved(_leave.bind(GameRoute.MENU_SCENE)):
+		_leave(GameRoute.MENU_SCENE)
 
 func _on_levels() -> void:
-	_leave(GameRoute.LEVELS_SCENE)
+	if not _confirm_if_unsaved(_leave.bind(GameRoute.LEVELS_SCENE)):
+		_leave(GameRoute.LEVELS_SCENE)
 
 func _leave(path: String) -> void:
 	_board.reconcile()

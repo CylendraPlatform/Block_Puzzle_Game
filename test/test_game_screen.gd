@@ -140,9 +140,12 @@ func _waste_one_move(screen: Control) -> void:
 	_ok(false, "level has a non-exit move")
 
 func _completions() -> int:
+	return _count("level_complete")
+
+func _count(event: String) -> int:
 	var n := 0
 	for ev in _events:
-		if str(ev["event"]) == "level_complete":
+		if str(ev["event"]) == event:
 			n += 1
 	return n
 
@@ -329,24 +332,76 @@ func _save_failures() -> void:
 	disk = _disk()
 	_ok(disk.stars("classic", "legacy-1") == 3 and disk.unlocked("classic") == 1, "fresh launch has the completion")
 	_close(screen)
-	# Leaving while the fault persists: routes on, still reported failed, kept in memory and
-	# written by the next successful save.
+	# Next is blocked while the save fails; Retry recovers it, then Next advances.
+	before = _completions()
+	screen = await _save_case("progress_v2.save:open,progress.save:open")
+	_ok(screen._next.disabled and screen._save_note.text.contains("next level stays locked"), "failed save: Next disabled and the note says why")
+	screen._on_next()
+	_ok(screen._index == 0 and screen._session.is_won() and screen._win_layer.visible and screen._save_status == "failed", "failed save: Next (after its own retry) does not advance")
+	_progress.store._crash_at = ""
+	screen._on_retry_save()
+	_ok(screen._save_status == "saved" and not screen._next.disabled and not screen._retry.visible, "Retry Save recovers: Next enabled again")
+	screen._on_next()
+	_ok(screen._index == 1 and _disk().stars("classic", "legacy-1") == 3, "after recovery Next opens legacy-2, win on disk")
+	_ok(_completions() - before == 1, "blocked Next and recovery: one level_complete event")
+	_close(screen)
+	# Menu / Levels / Restart while the fault persists: asked first, never claimed as saved.
+	before = _completions()
 	screen = await _save_case("progress_v2.save:open,progress.save:open")
 	_routes.clear()
 	screen._on_levels()
-	_ok(_last_route() == GameRoute.LEVELS_SCENE and screen._save_status == "failed", "leaving with the fault still on routes on and stays reported failed")
+	_ok(_routes.is_empty() and screen._confirm_layer.visible and screen._confirm_note.text.contains("could not be saved"), "Levels with an unsaved win asks first, no route yet")
+	screen._on_confirm_stay()
+	_ok(_routes.is_empty() and not screen._confirm_layer.visible and screen._win_layer.visible, "Stay keeps the player on the win card")
+	screen._on_menu()
+	screen._on_confirm_retry()
+	_ok(_routes.is_empty() and screen._confirm_layer.visible and screen._confirm_note.text.contains("failed again") and screen._save_status == "failed", "Retry inside the prompt while the fault persists stays failed and says so")
+	screen._on_confirm_leave()
+	_ok(_last_route() == GameRoute.MENU_SCENE and screen._save_status == "failed", "Leave Anyway routes to the menu; status stays failed")
 	_ok(_progress.store.stars("classic", "legacy-1") == 3 and _disk().stars("classic", "legacy-1") == 0, "completion kept in memory only")
 	_progress.store._crash_at = ""
 	var result: Dictionary = _progress.store.save()
 	_ok(int(result["v2"]) == OK and _disk().stars("classic", "legacy-1") == 3, "the next save writes the kept completion")
+	_ok(_completions() - before == 1, "leave anyway: one level_complete event")
 	_close(screen)
-	# Newer save on the device: read-only, never claimed as saved, no Retry.
+	# Retry inside the prompt succeeds: the chosen action runs.
+	screen = await _save_case("progress_v2.save:open,progress.save:open")
+	_routes.clear()
+	screen._on_menu()
+	_progress.store._crash_at = ""
+	screen._on_confirm_retry()
+	_ok(_last_route() == GameRoute.MENU_SCENE and screen._save_status == "saved" and not screen._confirm_layer.visible, "Retry inside the prompt saves, then goes to the menu")
+	_close(screen)
+	# Restart: asked first; Leave Anyway restarts once, the win event is not repeated.
+	before = _completions()
+	var restarts := _count("level_restart")
+	screen = await _save_case("progress_v2.save:open,progress.save:open")
+	screen._on_restart()
+	_ok(screen._confirm_layer.visible and screen._session.is_won() and _count("level_restart") == restarts, "Restart with an unsaved win asks first and does not restart yet")
+	screen._on_confirm_leave()
+	_ok(not screen._session.is_won() and not screen._confirm_layer.visible and screen._save_status == "" and _count("level_restart") == restarts + 1, "Leave Anyway restarts once")
+	_ok(_completions() - before == 1, "restart after unsaved win: one level_complete event")
+	_progress.store._crash_at = ""
+	_close(screen)
+	# Partial saves proceed normally: no prompt, Next enabled.
+	screen = await _save_case("progress.save:open")
+	_ok(screen._save_status == "partial" and not screen._next.disabled, "partial save: Next stays enabled")
+	_routes.clear()
+	screen._on_levels()
+	_ok(_last_route() == GameRoute.LEVELS_SCENE and not screen._confirm_layer.visible, "partial save: Levels leaves without a prompt")
+	_progress.store._crash_at = ""
+	_close(screen)
+	# Newer save on the device: read-only, never claimed as saved, no Retry, play continues.
 	_clean()
 	_progress.open_store(DIR).read_only = true
 	screen = await _open_screen(0)
 	_win(screen)
-	_ok(screen._save_status == "read_only" and screen._save_note.visible and not screen._retry.visible, "read-only store: not-saved note, no Retry")
+	_ok(screen._save_status == "read_only" and screen._save_note.visible and screen._save_note.text.contains("not being saved") and not screen._retry.visible, "read-only store: not-saved note, no Retry")
 	_ok(_progress.store.stars("classic", "legacy-1") == 0, "read-only store: nothing recorded")
+	_ok(not screen._next.disabled, "read-only store: Next allowed (nothing can be saved on this device)")
+	_routes.clear()
+	screen._on_menu()
+	_ok(_last_route() == GameRoute.MENU_SCENE and not screen._confirm_layer.visible, "read-only store: Menu leaves without the unsaved-win prompt")
 	_progress.store.read_only = false
 	_close(screen)
 
