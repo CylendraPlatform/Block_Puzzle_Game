@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "id": "proto-b",
+  "name": "Who Goes First",
+  "board": {"cols": 5, "rows": 5, "walls": []},
+  "pieces": [
+    {"id": "red_bar", "color": "red", "cells": [[0, 0], [1, 0]], "pos": [0, 2], "required": true, "reveal": "visible"},
+    {"id": "blue_bar", "color": "blue", "cells": [[0, 0], [0, 1]], "pos": [3, 0], "required": true, "reveal": "visible"},
+    {"id": "red_dot", "color": "red", "cells": [[0, 0]], "pos": [1, 4], "required": true, "reveal": "visible"}
+  ],
+  "gates": [
+    {"id": "red_top", "side": "top", "lo": 3, "hi": 4, "accept": ["red"], "initial_state": "open"},
+    {"id": "blue_left", "side": "left", "lo": 3, "hi": 4, "accept": ["blue"], "initial_state": "open"}
+  ],
+  "goals": {"all_required_pieces_exited": true},
+  "authored_metrics": {
+    "par": 6,
+    "solution": [
+      ["red_dot", "right", [4, 4]], ["red_dot", "exit"],
+      ["blue_bar", "down", [3, 3]], ["blue_bar", "exit"],
+      ["red_bar", "right", [3, 2]], ["red_bar", "exit"]
+    ],
+    "prompt": "Two doors, three blocks. Order matters.",
+    "intent": "Red door: top edge, columns 3-4. Blue door: left edge, rows 3-4. The red dot sits in the blue bar's escape lane, the blue bar sits in the red bar's escape column, and the red bar, once lined up, blocks both. The dot leaves first, then the blue bar, then the red bar."
+  }
+}
