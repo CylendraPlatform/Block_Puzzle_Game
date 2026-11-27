@@ -29,6 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # export_presets.cfg is tracked: no keystore settings, version/code matches the ledger.
+      - name: Release metadata guard
+        run: bash tools/release/check_release_metadata.sh
+
       - name: Install Godot ${{ env.GODOT_VERSION }} (checksum-verified)
         run: |
           zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"

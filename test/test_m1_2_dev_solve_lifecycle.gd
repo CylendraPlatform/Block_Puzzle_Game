@@ -123,7 +123,8 @@ func _release_mode_runs_no_solver() -> void:
 	var labels: Array = []
 	for node in menu.find_children("*", "Button", true, false):
 		labels.append((node as Button).text)
-	_ok(not labels.has("Advanced QA") and not labels.has("v2 Pilot") and not labels.has("TD-3.6 QA"), "release menu hides every QA route: %s" % str(labels))
+	_ok(not labels.has("Advanced QA") and not labels.has("v2 Pilot") and not labels.has("TD-3.6 QA") and not labels.has("Editor"), "release menu hides every QA route: %s" % str(labels))
+	_ok(labels.has("Play") and labels.has("Levels") and labels.has("Settings"), "release menu keeps the player entries: %s" % str(labels))
 	menu.free()
 	var screen := await _open()
 	var picks := 0
