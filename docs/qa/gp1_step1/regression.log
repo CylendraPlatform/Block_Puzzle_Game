@@ -24,7 +24,7 @@ test_classic_score exit=0 | == done: 0 failure(s) ==
 test_game_screen exit=0 | == done: 0 failure(s) ==
 test_editor_input exit=0 | == done: 0 failure(s) ==
 test_board_geometry exit=0 | == done: 43784 check(s), 0 failure(s) ==
-test_board_geometry_core exit=0 | == done: 85379 check(s), 0 failure(s) ==
-test_classic_equivalence exit=0 | SUMMARY levels=100 compared_states=81771 checks=1825 failures=0 secs=1342
+test_board_geometry_core exit=0 | == done: 85406 check(s), 0 failure(s) ==
+test_classic_equivalence exit=0 | SUMMARY levels=100 compared_states=81771 checks=1825 failures=0 secs=1375
 proto_gates_check exit=0 | == done: 0 failure(s) ==
-TOTAL_FAILED_SCRIPTS=0 of 29 (head dd4a387 + working tree, 2026-11-28T08:51:34Z)
+TOTAL_FAILED_SCRIPTS=0 of 29 (head 74258ad + working tree, 2026-11-28T11:20:29Z)

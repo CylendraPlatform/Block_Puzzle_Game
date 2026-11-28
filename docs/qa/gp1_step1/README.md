@@ -47,10 +47,26 @@ code from `main` at `59a07dc` (`_layout`, `board_rect`, `frame_rect`, `_px`, `_c
 - **Touch through the real input path** (`_gui_input`, on the reused view): one in-board
   swipe lands where `PuzzleEngine` says, and one drag-to-exit commits an `EXIT` in the right
   direction. This comes to 6 checks.
-- **Result:** exit code 0, 85,379 checks, 0 failures.
+- **Partial gate through the real input path** (added after review). The level is prototype
+  level A from `design/gate_proto/levels/proto_a.json`: a two-cell red door on the right
+  edge, rows 2-3, of a 5x5 board. It is read from the design folder only, with no campaign,
+  progress store or save. Each case runs at the M31 canvas size and at the 360x800 board area:
+  - aligned (block in rows 2-3): the engine offers the exit, and one drag through
+    `_gui_input` commits exactly one `EXIT` right through `red_right`;
+  - misaligned at the start (rows 0-1): a long drag right commits one slide to the frame and
+    no `EXIT`;
+  - misaligned against the frame (rows 0-1): the drag commits nothing;
+  - half over the door (rows 1-2): the drag commits nothing.
+
+  `user://` is listed (names, sizes, modification times) before and after these cases and
+  must be unchanged. This comes to 27 checks. Production code is unchanged, because the test
+  found no defect.
+- **Result:** exit code 0, 85,406 checks, 0 failures.
 - **Can it fail?** I changed one constant in `refit()` (top margin factor 0.16 to 0.17).
   The test then reported 5,345 failures (exit code 225). After restoring the constant it
-  passed again with 0 failures.
+  passed again with 0 failures. For the partial-gate cases, a temporary copy of the test that
+  widened the door to the full edge (rows 0-4) reported 18 failures (exit code 18). The
+  copy was deleted afterwards.
 
 ## Full regression
 

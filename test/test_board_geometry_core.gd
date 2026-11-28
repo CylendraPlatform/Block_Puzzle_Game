@@ -14,6 +14,10 @@ extends SceneTree
 ##    result must equal a fresh fit and the legacy reference.
 ## 4. Touch: a real swipe through _gui_input commits an in-board move and a drag-to-exit
 ##    commits the exit, on a reused view.
+## 5. Partial gate: on prototype level A (a two-cell door on a five-cell edge), a drag of the
+##    aligned block commits exactly one EXIT through that door; a misaligned block (rows 0-1,
+##    against the frame, or half over the door) never commits an EXIT. user:// is snapshotted
+##    before and after to prove nothing is written.
 
 const VIEWS := [Vector2(328, 560), Vector2(361, 600), Vector2(379, 640), Vector2(688, 1380), Vector2(688, 300)]
 const EPS := 0.0001
@@ -105,6 +109,11 @@ func _initialize() -> void:
 	before = _checks
 	_swipes(view, levels)
 	print("  swipes: %d check(s)" % (_checks - before))
+	before = _checks
+	var user_before := _user_snapshot()
+	_partial_gate(view)
+	_ok(_user_snapshot() == user_before, "partial gate: user:// unchanged (no progress or save written)")
+	print("  partial gate: %d check(s)" % (_checks - before))
 	view.queue_free()
 	print("== done: %d check(s), %d failure(s) ==" % [_checks, _fails])
 	quit(_fails)
@@ -280,6 +289,114 @@ func _swipe(view: BoardViewV2, defn: Dictionary, id: String, action: PuzzleActio
 	else:
 		_ok(got.direction == action.direction and got.landing == action.landing, "%s lands on %s" % [tag, action.landing])
 	return true
+
+## Real swipes through a short positioned gate (prototype level A: a two-cell red door on the
+## right edge, rows 2-3, of a 5x5 board). The definition comes from the design folder in res://;
+## no campaign, progress store or save is touched.
+const PROTO_A := "res://design/gate_proto/levels/proto_a.json"
+
+func _partial_gate(view: BoardViewV2) -> void:
+	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(PROTO_A))
+	var loaded := LevelLoader.load_definition(raw if raw is Dictionary else {})
+	_ok(bool(loaded["ok"]) and str(loaded["source"]) == "v2", "partial gate: proto_a loads as schema v2")
+	if not bool(loaded["ok"]):
+		return
+	var defn: Dictionary = loaded["definition"]
+	var gate: Dictionary = defn["gates"][0]
+	var rows := int(defn["board"]["rows"])
+	_ok(str(gate["side"]) == "right" and int(gate["hi"]) - int(gate["lo"]) + 1 < rows, "partial gate: the door is shorter than its edge")
+	var committed: Array = []
+	var record := func(a: PuzzleAction) -> void: committed.append(a)
+	view.commit_requested.connect(record)
+	for size in [VIEWS[3], VIEWS[0]]:
+		var start := PuzzleState.from_definition(defn)
+		# Aligned: drop the tall block to rows 2-3, then a drag right must leave through the door.
+		var aligned := _apply(defn, start, "red", "down", Vector2i(1, 2))
+		if aligned != null:
+			_gate_swipe(view, defn, aligned, size, "right", 6.0, committed, true, "aligned @%s" % size)
+		# Misaligned at the start (rows 0-1): a long drag right slides to the frame, never exits.
+		_gate_swipe(view, defn, start, size, "right", 6.0, committed, false, "misaligned rows 0-1 @%s" % size)
+		# Against the frame, still misaligned: the drag must commit nothing at all.
+		var at_frame := _apply(defn, start, "red", "right", Vector2i(4, 0))
+		if at_frame != null:
+			_gate_swipe(view, defn, at_frame, size, "right", 2.0, committed, false, "at frame rows 0-1 @%s" % size)
+		# Half over the door (rows 1-2): partial overlap is not an exit either.
+		var half := _apply(defn, start, "red", "down", Vector2i(1, 1))
+		if half != null:
+			half = _apply(defn, half, "red", "right", Vector2i(4, 1))
+		if half != null:
+			_gate_swipe(view, defn, half, size, "right", 2.0, committed, false, "half over the door rows 1-2 @%s" % size)
+	view.commit_requested.disconnect(record)
+
+## Applies the legal MOVE of `id` in `direction` that lands on `landing`; null (and a failure) if none.
+func _apply(defn: Dictionary, state: PuzzleState, id: String, direction: String, landing: Vector2i) -> PuzzleState:
+	for item in PuzzleEngine.legal_actions(defn, state, id):
+		var a := item as PuzzleAction
+		if a != null and a.kind == PuzzleAction.MOVE and a.direction == direction and a.landing == landing:
+			var result := PuzzleEngine.transition(state, a, defn)
+			if bool(result["ok"]):
+				return result["next_state"]
+	_ok(false, "partial gate: setup move %s %s to %s is legal" % [id, direction, landing])
+	return null
+
+## Drags the red block `cells` cells in `direction` through _gui_input. With `expect_exit`, the
+## engine must offer that exit and exactly one matching EXIT must be committed; otherwise the
+## engine must offer none and no committed action may be an EXIT.
+func _gate_swipe(view: BoardViewV2, defn: Dictionary, state: PuzzleState, size: Vector2, direction: String, cells: float, committed: Array, expect_exit: bool, tag: String) -> void:
+	view.center_vertically = true
+	view.size = size
+	view.show_state(defn, state)
+	view._layout()
+	var engine_exit: PuzzleAction = null
+	var max_dist := 0
+	var origin: Vector2i = state.pieces["red"]["pos"]
+	for item in PuzzleEngine.legal_actions(defn, state, "red"):
+		var a := item as PuzzleAction
+		if a == null or a.direction != direction:
+			continue
+		if a.kind == PuzzleAction.EXIT:
+			engine_exit = a
+		else:
+			max_dist = maxi(max_dist, absi(a.landing.x - origin.x) + absi(a.landing.y - origin.y))
+	_ok((engine_exit != null) == expect_exit, "partial gate %s: engine %s" % [tag, "offers the exit" if expect_exit else "offers no exit"])
+	if expect_exit:
+		cells = float(max_dist) + BoardViewV2.EXIT_PAST + 0.4
+	committed.clear()
+	var start := view.cell_center(origin)
+	var finish := start + Vector2(view._dir(direction)) * view._cell * cells
+	view._gui_input(_touch(start, true))
+	view._gui_input(_drag(start.lerp(finish, 0.5)))
+	view._gui_input(_drag(finish))
+	view._gui_input(_touch(finish, false))
+	var exits := committed.filter(func(a): return (a as PuzzleAction).kind == PuzzleAction.EXIT)
+	if expect_exit:
+		_ok(committed.size() == 1 and exits.size() == 1, "partial gate %s: exactly one EXIT committed (%d action(s))" % [tag, committed.size()])
+		if exits.size() == 1:
+			var got := exits[0] as PuzzleAction
+			_ok(got.direction == direction and got.gate_id == str(defn["gates"][0]["id"]) and got.piece_id == "red", "partial gate %s: exit %s through %s" % [tag, got.direction, got.gate_id])
+	else:
+		_ok(exits.is_empty(), "partial gate %s: no EXIT committed (%d action(s))" % [tag, committed.size()])
+		if max_dist == 0:
+			_ok(committed.is_empty(), "partial gate %s: nothing committed against the frame" % tag)
+		else:
+			_ok(committed.size() == 1 and (committed[0] as PuzzleAction).landing == origin + view._dir(direction) * max_dist, "partial gate %s: one slide to the frame" % tag)
+
+## Names, sizes and modification times of everything under user:// (to prove nothing is written).
+func _user_snapshot() -> Array:
+	var out: Array = []
+	_walk("user://", out)
+	out.sort()
+	return out
+
+func _walk(dir: String, out: Array) -> void:
+	var d := DirAccess.open(dir)
+	if d == null:
+		return
+	for f in d.get_files():
+		var path := dir.path_join(f)
+		out.append("%s|%d|%d" % [path, FileAccess.get_size(path), FileAccess.get_modified_time(path)])
+	for sub in d.get_directories():
+		_walk(dir.path_join(sub), out)
 
 func _touch(pos: Vector2, pressed: bool) -> InputEventScreenTouch:
 	var e := InputEventScreenTouch.new()
