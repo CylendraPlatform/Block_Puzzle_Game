@@ -49,6 +49,11 @@ func _initialize() -> void:
 			"inset_us": _inset_cost(view, geometry)})
 	view.queue_free()
 	_report(rows)
+	# `-- --raw`: also print every per-level measurement as CSV (same data the summary uses).
+	if OS.get_cmdline_user_args().has("--raw"):
+		print("RAW,level,pieces,cells,draw_us,draws,inset_us")
+		for r in rows:
+			print("RAW,%s,%d,%d,%.1f,%d,%.1f" % [r["level"], r["pieces"], r["cells"], r["draw_us"], r["draws"], r["inset_us"]])
 	quit(0)
 
 ## Per-redraw cost of the gloss inset alone: offset_polygon for every piece's body polygon.

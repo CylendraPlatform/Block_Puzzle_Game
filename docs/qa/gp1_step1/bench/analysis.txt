@@ -1,0 +1,7 @@
+levels 100 runs base 5 refactor 5
+run medians base      [1996.5, 2045.2, 1892.2, 1835.4, 1946.3] mean 1943.1 sd 82.9
+run medians refactor  [2012.0, 1926.0, 2036.2, 1924.7, 2006.6] mean 1981.1 sd 52.1
+paired run diffs (refactor - base, same slot): [15.5, -119.2, 144.0, 89.2, 60.2]
+per-level mean ratio refactor/base: median 1.015  p10 0.943  p90 1.094
+levels slower: 57  faster: 43
+noise floor (base runs 1-2 vs 3-5, same code): median ratio 1.056  p10 0.949  p90 1.197
