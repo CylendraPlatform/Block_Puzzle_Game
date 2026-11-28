@@ -1,6 +1,8 @@
 # Milestone GP-1: positioned-gate prototype route (proposal)
 
-**Status: proposal for owner approval. Not started.**
+**Status: proposal for owner approval. Not started.** The implementation plan, which follows
+the owner's theme decision (Carved Pearl default, Midnight Glass second), is
+`GP1_IMPLEMENTATION_PLAN.md`.
 
 ## Goal
 
