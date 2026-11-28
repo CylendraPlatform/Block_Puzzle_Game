@@ -19,13 +19,12 @@ const EDGE_ZONE := 48.0
 ## defaults and the fallback for a missing or non-positive value.
 const EXIT_PAST_SETTING := "gameplay/exit_past"
 const EXIT_PAST_EDGE_SETTING := "gameplay/exit_past_edge"
-## Frame band width around the board, in cells. Gate slots sit inside it.
-const FRAME_RATIO := 0.26
-## Minimum space above and below the frame when the view's height is the limit.
-const FRAME_GAP_Y := 12.0
-## Part of the frame band, from the board edge outwards, that a gate slot occupies; the rest
-## stays as an unbroken outer rim.
-const GATE_DEPTH := 0.8
+## Layout constants live in BoardGeometry (shared with theme skins); kept here as aliases for
+## existing callers. Frame band width in cells; space above / below the frame; part of the
+## frame band a gate slot occupies (the rest stays an unbroken outer rim).
+const FRAME_RATIO := BoardGeometry.FRAME_RATIO
+const FRAME_GAP_Y := BoardGeometry.FRAME_GAP_Y
+const GATE_DEPTH := BoardGeometry.GATE_DEPTH
 
 var definition: Dictionary = {}
 var state: PuzzleState
@@ -34,6 +33,8 @@ var input_locked := false
 ## pilot / QA screens use. Presentation only: touch mapping follows the same _origin.
 var center_vertically := false
 
+## Current layout (BoardGeometry.fit); _cell and _origin mirror it for the drawing code.
+var geometry := BoardGeometry.new()
 var _cell := 48.0
 var _origin := Vector2.ZERO
 var _visual := {}
@@ -305,40 +306,29 @@ func _process(delta: float) -> void:
 ## same content edges as the HUD buttons) unless the height is the limit, and it never
 ## leaves the view. Gates are drawn inside the frame band.
 func _layout() -> void:
-	var board: Dictionary = definition.get("board", {})
-	var cols := int(board.get("cols", 1))
-	var rows := int(board.get("rows", 1))
-	var span := Vector2(cols, rows) + Vector2.ONE * FRAME_RATIO * 2.0
-	var avail := Vector2(maxf(1.0, size.x), maxf(1.0, size.y - FRAME_GAP_Y * 2.0))
-	_cell = minf(avail.x / span.x, avail.y / span.y)
-	var frame := _cell * FRAME_RATIO
-	var board_size := Vector2(_cell * cols, _cell * rows)
-	var outer_h := board_size.y + frame * 2.0
-	var spare_y := maxf(0.0, size.y - outer_h)
-	var top := spare_y * 0.5 if center_vertically else minf(28.0, spare_y * 0.16)
-	_origin = Vector2((size.x - board_size.x) * 0.5, top + frame)
+	geometry.refit(definition.get("board", {}), size, center_vertically)
+	_cell = geometry.cell
+	_origin = geometry.origin
 
 ## Board and frame geometry in this view's local coordinates (tests and diagnostics).
 func board_rect() -> Rect2:
-	var board: Dictionary = definition.get("board", {})
-	return Rect2(_origin, Vector2(int(board.get("cols", 1)), int(board.get("rows", 1))) * _cell)
+	return geometry.board_rect()
 
 func frame_rect() -> Rect2:
-	return board_rect().grow(_cell * FRAME_RATIO)
+	return geometry.frame_rect()
 
 ## The cell under a local point; points on the frame or outside map off the board.
 func cell_at(local: Vector2) -> Vector2i:
-	return _cell_at(local)
+	return geometry.cell_at(local)
 
 func cell_center(cell: Vector2i) -> Vector2:
-	return _px(cell) + Vector2(_cell, _cell) * 0.5
+	return geometry.cell_center(cell)
 
 func _px(cell: Vector2i) -> Vector2:
-	return _origin + Vector2(cell) * _cell
+	return geometry.cell_px(cell)
 
 func _cell_at(px: Vector2) -> Vector2i:
-	var local := (px - _origin) / _cell
-	return Vector2i(floori(local.x), floori(local.y))
+	return geometry.cell_at(px)
 
 func _draw() -> void:
 	if state == null or definition.is_empty():
@@ -453,25 +443,9 @@ func _draw_gate(gate: Dictionary, cols: int, rows: int) -> void:
 	if remaining > 0:
 		_badge(lip.get_center(), str(remaining))
 
-## A gate's slot in local coordinates: along its edge from `lo` to `hi` (inset by a small
-## pad), and from the board edge outwards over GATE_DEPTH of the frame band. It overlaps the
-## board edge by one pixel so no seam shows. Empty for an unknown side.
+## A gate's slot in local coordinates (BoardGeometry.gate_slot).
 func gate_slot(gate: Dictionary, cols: int, rows: int) -> Rect2:
-	var lo := int(gate.get("lo", 0))
-	var hi := int(gate.get("hi", lo))
-	var along := float(hi - lo + 1) * _cell
-	var pad := clampf(_cell * 0.08, 2.0, 6.0)
-	var depth := _cell * FRAME_RATIO * GATE_DEPTH
-	match str(gate.get("side", "")):
-		"left":
-			return Rect2(_origin.x - depth, _origin.y + lo * _cell + pad, depth + 1.0, along - pad * 2.0)
-		"right":
-			return Rect2(_origin.x + cols * _cell - 1.0, _origin.y + lo * _cell + pad, depth + 1.0, along - pad * 2.0)
-		"top":
-			return Rect2(_origin.x + lo * _cell + pad, _origin.y - depth, along - pad * 2.0, depth + 1.0)
-		"bottom":
-			return Rect2(_origin.x + lo * _cell + pad, _origin.y + rows * _cell - 1.0, along - pad * 2.0, depth + 1.0)
-	return Rect2()
+	return geometry.gate_slot(gate, cols, rows)
 
 ## A small padlock glyph (shackle arc + body) so a locked gate reads without colour.
 func _glyph_lock(center: Vector2) -> void:
