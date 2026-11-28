@@ -15,6 +15,8 @@ levels and player progress are untouched; `gameplay/engine` stays `legacy`. This
 5. `ART_SPEC.md`: recommended art direction (Carved Pearl) and its visual specification;
    side-by-side comparison in `mockups/art_direction_comparison.png`.
 6. `MILESTONE_GP1.md`: the minimal implementation milestone (three levels, isolated dev route).
+7. `art_selection/README.md`: art direction selection package (Carved Pearl vs Midnight Glass,
+   layered concept mockups of Level C at identical scale; Toy Workshop kept as reference).
 
 Owner review of `cf493760` (2026-11-27): gameplay model provisionally approved; visual
 direction and implementation not yet approved. This PR stays a design reference, not a feature
