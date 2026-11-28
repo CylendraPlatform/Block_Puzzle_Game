@@ -1,0 +1,67 @@
+{
+  "level": "proto-c",
+  "geometry": {
+    "pearl": {
+      "ok": true,
+      "phone_board": [
+        "left edge: open cells [2, 3] of 6",
+        "right edge: open cells [4] of 6",
+        "top edge: open cells [1] of 6",
+        "bottom edge: open cells [4, 5] of 6"
+      ],
+      "closeup_board": [
+        "left edge: open cells [2, 3] of 6",
+        "right edge: open cells [4] of 6",
+        "top edge: open cells [1] of 6",
+        "bottom edge: open cells [4, 5] of 6"
+      ]
+    },
+    "glass": {
+      "ok": true,
+      "phone_board": [
+        "left edge: open cells [2, 3] of 6",
+        "right edge: open cells [4] of 6",
+        "top edge: open cells [1] of 6",
+        "bottom edge: open cells [4, 5] of 6"
+      ],
+      "closeup_board": [
+        "left edge: open cells [2, 3] of 6",
+        "right edge: open cells [4] of 6",
+        "top edge: open cells [1] of 6",
+        "bottom edge: open cells [4, 5] of 6"
+      ]
+    }
+  },
+  "contrast": {
+    "pearl": {
+      "title text on page": 11.74,
+      "secondary text on page": 4.99,
+      "button label on button": 10.3,
+      "cell vs tray (board edge)": 4.61,
+      "opening floor vs tray": 8.83,
+      "red block vs cell": 1.58,
+      "blue block vs cell": 1.9,
+      "green block vs cell": 2.52,
+      "yellow block vs cell": 3.48,
+      "red door strip vs tray": 2.92,
+      "blue door strip vs tray": 2.43,
+      "green door strip vs tray": 1.83,
+      "yellow door strip vs tray": 1.32
+    },
+    "glass": {
+      "title text on page": 13.71,
+      "secondary text on page": 6.48,
+      "button label on button": 11.01,
+      "cell vs tray (board edge)": 1.16,
+      "opening floor vs tray": 1.52,
+      "red block vs cell": 4.89,
+      "blue block vs cell": 5.82,
+      "green block vs cell": 8.42,
+      "yellow block vs cell": 9.98,
+      "red door strip vs tray": 4.23,
+      "blue door strip vs tray": 5.03,
+      "green door strip vs tray": 7.27,
+      "yellow door strip vs tray": 8.62
+    }
+  }
+}
